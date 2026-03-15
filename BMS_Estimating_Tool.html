@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>BMS Estimating Tool — Panta Contracting</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Segoe UI,sans-serif;font-size:13px;background:#f0f2f5;}</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useRef,useMemo}=React;
+
+const CODES={410:"Controllers",411:"Controller Modules",412:"Signal Cable",413:"Modbus Cable",414:"CAT Cable",415:"Control Panels",416:"Field Devices",417:"DALI-KNX",418:"Fire Equipment",419:"Data Networks",420:"Panel Building",421:"Termination/Testing/FAT",501:"Erection Materials",505:"Busbar Trunking",510:"Switchgear",511:"MCC Equipment",512:"BMS Equipment",520:"PVC Pipes/Ducts",570:"Control Panels (Main)",615:"Elec Single Core Cables",616:"Elec Multicore Cables",617:"ELV/BMS/Special Cables",620:"Cable Accessories",650:"Galv Cable Trays",651:"PVC Cable Trays",652:"Galv Cable Basket",654:"Galv Cable Ladder",675:"Galv Cable Trunking",676:"Alum Cable Trunking",680:"PVC Cable Trunking",681:"Underfloor Cable Trunking",690:"Galv Conduit",700:"PVC Conduit",705:"Wiring Accessories",725:"Fire Alarm Equipment",750:"Security Alarm",751:"Access Control",753:"Sub-Contracting Install Elec",820:"UPS/Voltage Stabilisers",821:"Data Network Equipment",835:"Light Fittings",845:"Generators/AMF",870:"Tools & Instruments",875:"Consumables",880:"Drawings/Manuals",885:"Spare Parts",900:"Labour",901:"Dismantling",902:"Testing & Commissioning",960:"Sub-Contracting Works",961:"Enemalta Application",962:"Cranage & Transport",970:"Provisional Sum"};
+
+const FIELD_DEVICES=[
+  {id:"fd_bv125",desc:"Butterfly Valve 2-way DN125 + BACnet Actuator 90Nm IP66",partNo:"D6125W/JRCA-BAC-S2-T",rate:915.00},
+  {id:"fd_bv100",desc:"Butterfly Valve 2-way DN100 + BACnet Actuator 90Nm IP66",partNo:"D6100W/JRCA-BAC-S2-T",rate:854.00},
+  {id:"fd_bv80",desc:"Butterfly Valve 2-way DN80 + Actuator 40Nm IP54",partNo:"D680N/GR24A-SR-5",rate:429.50},
+  {id:"fd_bv65",desc:"Butterfly Valve 2-way DN65 + Actuator 20Nm IP54",partNo:"D665N/SR24A-SR-5",rate:329.50},
+  {id:"fd_bv50",desc:"Butterfly Valve 2-way DN50 + Actuator 20Nm IP54",partNo:"D665N/SR24A-SR-5",rate:314.50},
+  {id:"fd_ts100",desc:"Duct/Immersion Temp Sensor NTC10k 100mm + Thermowell SS G1/2\"",partNo:"01DT-1LL / A-22P-A08",rate:41.50},
+  {id:"fd_ts_cable",desc:"Cable Temp Sensor NTC10k 200mm 2m cable",partNo:"01CT-1LPF",rate:14.70},
+  {id:"fd_act40",desc:"Rotary Actuator 40Nm 24V MFT 2-10V IP54",partNo:"GM24A-MF",rate:264.00},
+  {id:"fd_avt",desc:"Air Velocity Transmitter 0-10V + Multi-point Probe 100mm",partNo:"TPAVT8/10 and TPVPMP/200",rate:124.74},
+  {id:"fd_dps",desc:"Differential Pressure Switch 20-300Pa",partNo:"01APS-10R",rate:19.35},
+];
+
+const CATS=["DDC Controllers","Control Panels","Integrated Systems","Field Equipment","Labour","Misc Blocks","Common Field Devices"];
+
+const INITIAL_BLOCKS=[
+  {id:"b_labour",name:"Labour Rates",category:"Labour",description:"Standard BMS labour rates",lines:[
+    {id:"l1",desc:"AGV Pair",partNo:"",code:900,unit:"hr",rate:24.288,labour:0,qty:1,markup:1,workPkg:""},
+    {id:"l2",desc:"BMS Pair",partNo:"",code:900,unit:"hr",rate:33.644,labour:0,qty:1,markup:1,workPkg:""},
+    {id:"l3",desc:"BMS Tech — Single Rate",partNo:"",code:900,unit:"hr",rate:21.5,labour:0,qty:1,markup:1,workPkg:""},
+    {id:"l4",desc:"BMS Engineer — Single Rate",partNo:"",code:900,unit:"hr",rate:32,labour:0,qty:1,markup:1,workPkg:""},
+  ]},
+  {id:"b_ddc_small",name:"DDC Small (ECY-203)",category:"DDC Controllers",description:"Distech ECY-203 controller with LL signal cable",lines:[
+    {id:"s1",desc:"ECY-203-C1 — 8UI 8UO 3Modbus BACnet/IP",partNo:"ECY-203-C1",code:410,unit:"No",rate:375.63,labour:0,qty:1,markup:1,workPkg:"3"},
+    {id:"s2",desc:"24V 30A Power Supply",partNo:"PW-HDR-30-24",code:411,unit:"No",rate:21.66,labour:0,qty:1,markup:1,workPkg:"3"},
+    {id:"s3",desc:"Control Panel — DDC Panel",partNo:"",code:415,unit:"No",rate:100,labour:0,qty:1,markup:1,workPkg:"3"},
+    {id:"s4",desc:"Panel Building",partNo:"",code:420,unit:"No",rate:400,labour:4,qty:1,markup:1,workPkg:"3"},
+    {id:"s5",desc:"Containment — Roof",partNo:"",code:412,unit:"m",rate:4.68,labour:0.25,qty:60,markup:1,workPkg:"3"},
+    {id:"s6",desc:"3 Core Signal Cable — Roof",partNo:"",code:412,unit:"m",rate:0.82,labour:0.11,qty:120,markup:1,workPkg:"3"},
+  ]},
+  {id:"b_ddc_medium",name:"DDC Medium (ECY-600)",category:"DDC Controllers",description:"Distech ECY-600 with LL signal and Modbus",lines:[
+    {id:"m1",desc:"Distech ECY-600",partNo:"ECY-600-C1",code:410,unit:"No",rate:984.96,labour:0,qty:1,markup:1,workPkg:"3"},
+    {id:"m2",desc:"Power Supply Module 100-240VAC",partNo:"CDIY-PS24-00",code:416,unit:"No",rate:44.18,labour:0,qty:1,markup:1,workPkg:"3"},
+    {id:"m3",desc:"Controller Module — 8UI6DOT",partNo:"8UI6DOT",code:411,unit:"No",rate:300.96,labour:0,qty:1,markup:1,workPkg:"3"},
+    {id:"m4",desc:"Controller Module — 8UI",partNo:"8UI",code:411,unit:"No",rate:206.34,labour:0,qty:1,markup:1,workPkg:"3"},
+    {id:"m5",desc:"Controller Module — ECY-RS485 Gen2",partNo:"ECY-RS485 Gen2",code:411,unit:"No",rate:466.26,labour:0,qty:1,markup:1,workPkg:"3"},
+    {id:"m6",desc:"Control Panel — DDC Panel",partNo:"",code:415,unit:"No",rate:250,labour:0,qty:1,markup:1,workPkg:"3"},
+    {id:"m7",desc:"Panel Building",partNo:"",code:420,unit:"No",rate:500,labour:4,qty:1,markup:1,workPkg:"3"},
+    {id:"m8",desc:"Containment — Signal Cable LL",partNo:"",code:412,unit:"m",rate:4.68,labour:0.25,qty:100,markup:1,workPkg:"3"},
+    {id:"m9",desc:"Signal Cable — LL Various",partNo:"",code:412,unit:"m",rate:0.82,labour:0.11,qty:350,markup:1,workPkg:"3"},
+    {id:"m10",desc:"Containment — RS485/Modbus",partNo:"",code:413,unit:"m",rate:4.68,labour:0.25,qty:100,markup:1,workPkg:"3"},
+    {id:"m11",desc:"RS485 Cable — BACnet/Modbus",partNo:"",code:413,unit:"m",rate:0.82,labour:0.11,qty:250,markup:1,workPkg:"3"},
+    {id:"m12",desc:"CAT Cable",partNo:"",code:414,unit:"m",rate:2.5,labour:0.15,qty:50,markup:1,workPkg:"3"},
+  ]},
+  {id:"b_ddc_large",name:"DDC Large / Apex (ECY-APEX)",category:"DDC Controllers",description:"Distech ECY-APEX with LL signal and Modbus",lines:[
+    {id:"a1",desc:"Eclypse APEX",partNo:"ECY-APEX-48-C5-20",code:410,unit:"No",rate:0,labour:0,qty:1,markup:1,workPkg:"3"},
+    {id:"a2",desc:"Power Supply Module 100-240VAC",partNo:"CDIY-PS24-00",code:416,unit:"No",rate:44.18,labour:0,qty:1,markup:1,workPkg:"3"},
+    {id:"a3",desc:"Controller Module — ECY-RS485 Gen2",partNo:"ECY-RS485 Gen2",code:411,unit:"No",rate:466.26,labour:0,qty:1,markup:1,workPkg:"3"},
+    {id:"a4",desc:"Controller Module — ECY-8UI6UO",partNo:"ECY-8UI6UO",code:411,unit:"No",rate:312.93,labour:0,qty:1,markup:1,workPkg:"3"},
+    {id:"a5",desc:"Controller Module — ECY-4UI4UO",partNo:"ECY-4UI4UO",code:411,unit:"No",rate:219.45,labour:0,qty:1,markup:1,workPkg:"3"},
+    {id:"a6",desc:"Control Panel — DDC Panel",partNo:"",code:415,unit:"No",rate:150,labour:0,qty:1,markup:1,workPkg:"3"},
+    {id:"a7",desc:"Panel Building",partNo:"",code:420,unit:"No",rate:500,labour:4,qty:1,markup:1,workPkg:"3"},
+    {id:"a8",desc:"Containment — Signal Cable LL",partNo:"",code:412,unit:"m",rate:4.68,labour:0.25,qty:50,markup:1,workPkg:"3"},
+    {id:"a9",desc:"Signal Cable — LL",partNo:"",code:412,unit:"m",rate:0.82,labour:0.11,qty:125,markup:1,workPkg:"3"},
+    {id:"a10",desc:"Containment — RS485/Modbus",partNo:"",code:413,unit:"m",rate:4.68,labour:0.25,qty:10,markup:1,workPkg:"3"},
+    {id:"a11",desc:"RS485 Cable — BACnet/Modbus",partNo:"",code:413,unit:"m",rate:0.82,labour:0.11,qty:110,markup:1,workPkg:"3"},
+  ]},
+  {id:"b_ddc_display",name:"DDC Panel with Display (ECY-S1000)",category:"DDC Controllers",description:"ECY-S1000 with display, modules, UPS and panel",lines:[
+    {id:"dd1",desc:"UPS for DDC Panel",partNo:"",code:820,unit:"No",rate:500,labour:0,qty:1,markup:1,workPkg:"3"},
+    {id:"dd2",desc:"ECY-Display-10",partNo:"",code:410,unit:"No",rate:1175.97,labour:0,qty:1,markup:1,workPkg:"3"},
+    {id:"dd3",desc:"ECY-MBUS Gen2",partNo:"",code:411,unit:"No",rate:241.88,labour:0,qty:1,markup:1,workPkg:"3"},
+    {id:"dd4",desc:"ECY-RS485 Gen2",partNo:"",code:411,unit:"No",rate:268.10,labour:0,qty:1,markup:1,workPkg:"3"},
+    {id:"dd5",desc:"ECY-16DI 16-point Digital Input Module",partNo:"",code:411,unit:"No",rate:224.84,labour:0,qty:2,markup:1,workPkg:"3"},
+    {id:"dd6",desc:"ECY-8UI Input Module",partNo:"",code:411,unit:"No",rate:237.29,labour:0,qty:1,markup:1,workPkg:"3"},
+    {id:"dd7",desc:"ECY-8UI6UO I/O Module",partNo:"",code:411,unit:"No",rate:359.87,labour:0,qty:3,markup:1,workPkg:"3"},
+    {id:"dd8",desc:"ECY-PS24 Power Supply Module",partNo:"",code:411,unit:"No",rate:50.81,labour:0,qty:2,markup:1,workPkg:"3"},
+    {id:"dd9",desc:"ECY-S1000-48-C10 Connected System Controller",partNo:"ECY-S1000-48-C10",code:410,unit:"No",rate:637.80,labour:0,qty:1,markup:1,workPkg:"3"},
+    {id:"dd10",desc:"Relay",partNo:"",code:415,unit:"No",rate:5,labour:0,qty:6,markup:1,workPkg:"3"},
+    {id:"dd11",desc:"Panel Building",partNo:"",code:420,unit:"No",rate:750,labour:0,qty:1,markup:1,workPkg:"3"},
+    {id:"dd12",desc:"Control Panel Enclosure",partNo:"",code:415,unit:"No",rate:400,labour:0,qty:1,markup:1,workPkg:"3"},
+  ]},
+  {id:"b_ef_dol",name:"Basic EF Control Panel — DoL",category:"Control Panels",description:"Direct-on-line starter panel (Schrack)",lines:[
+    {id:"ef1",desc:"Wall-mounted Enclosure IP66 500x400x300mm",partNo:"WSA5040300",code:415,unit:"No",rate:80.91,labour:0,qty:1,markup:1,workPkg:"3"},
+    {id:"ef4",desc:"Selector Switch 3-pos Stay-put",partNo:"MM216872",code:415,unit:"No",rate:8,labour:0,qty:1,markup:1,workPkg:"3"},
+    {id:"ef5",desc:"Motor Protection Circuit Breaker BE2 6-10A",partNo:"BE201000",code:415,unit:"No",rate:9.55,labour:0,qty:1,markup:1,workPkg:"3"},
+    {id:"ef16",desc:"Control Transformer 230V/24V 100VA",partNo:"LP602010T",code:415,unit:"No",rate:30,labour:0,qty:1,markup:1,workPkg:"3"},
+    {id:"ef17",desc:"Contactor 3-pole CUBICO 5.5kW 12A 24VAC",partNo:"LZDC12B0",code:415,unit:"No",rate:7,labour:0,qty:1,markup:1,workPkg:"3"},
+    {id:"ef18",desc:"Consumables",partNo:"Misc",code:875,unit:"No",rate:50,labour:0,qty:1,markup:1,workPkg:"3"},
+    {id:"ef19",desc:"Panel Building",partNo:"Catania",code:420,unit:"No",rate:250,labour:2,qty:1,markup:1,workPkg:"3"},
+  ]},
+  {id:"b_ef_inv",name:"Basic EF Control Panel — With Inverter",category:"Control Panels",description:"As DoL but with Fuji Electric VFD",lines:[
+    {id:"fi1",desc:"Wall-mounted Enclosure IP66 500x400x300mm",partNo:"WSA5040300",code:415,unit:"No",rate:80.91,labour:0,qty:1,markup:1,workPkg:"3"},
+    {id:"fi4",desc:"Selector Switch 3-pos Stay-put",partNo:"MM216872",code:415,unit:"No",rate:8,labour:0,qty:1,markup:1,workPkg:"3"},
+    {id:"fi16",desc:"Control Transformer 230V/24V 100VA",partNo:"LP602010T",code:415,unit:"No",rate:30,labour:0,qty:1,markup:1,workPkg:"3"},
+    {id:"fi17",desc:"Fuji Electric VFD — TBC",partNo:"TBC",code:415,unit:"No",rate:0,labour:0,qty:1,markup:1,workPkg:"3"},
+    {id:"fi18",desc:"Consumables",partNo:"Misc",code:875,unit:"No",rate:50,labour:0,qty:1,markup:1,workPkg:"3"},
+    {id:"fi19",desc:"Panel Building",partNo:"Catania",code:420,unit:"No",rate:250,labour:2,qty:1,markup:1,workPkg:"3"},
+  ]},
+  {id:"b_vcp",name:"VCP — Ventilation Control Panel",category:"Control Panels",description:"Smoke extraction control, FAP interface, manual actuation",lines:[
+    {id:"v1",desc:"Wall-mounted Enclosure IP66 500x400x300mm",partNo:"WSA5040300",code:415,unit:"No",rate:80.91,labour:0,qty:2,markup:1,workPkg:"3"},
+    {id:"v8",desc:"CAPUS Switch-disconnector 3-pole 25A",partNo:"SI338120",code:415,unit:"No",rate:16.91,labour:0,qty:2,markup:1,workPkg:"3"},
+    {id:"v17",desc:"Fuji HVAC AR1 3ph 400V",partNo:"FRN15AR1L-4E",code:415,unit:"No",rate:897,labour:0,qty:2,markup:1,workPkg:"3"},
+    {id:"v18",desc:"Consumables",partNo:"Misc",code:875,unit:"No",rate:50,labour:0,qty:2,markup:1,workPkg:"3"},
+    {id:"v19",desc:"Panel Building",partNo:"Catania",code:420,unit:"No",rate:400,labour:0,qty:2,markup:1,workPkg:"3"},
+    {id:"v20",desc:"Installation and Functional Testing — AGV",partNo:"",code:902,unit:"hr",rate:24.288,labour:0,qty:8,markup:1,workPkg:"3"},
+    {id:"v21",desc:"Installation and Functional Testing — BMS Engineer",partNo:"",code:902,unit:"hr",rate:32,labour:0,qty:4,markup:1,workPkg:"3"},
+  ]},
+  {id:"b_hru",name:"Heat Recovery Unit",category:"Integrated Systems",description:"ECY-303 with field devices and panel",lines:[
+    {id:"h1",desc:"ECY-303 Connected Equipment Controller (SI)",partNo:"ECY-303 (SI)",code:410,unit:"No",rate:503.48,labour:0,qty:1,markup:1,workPkg:"3"},
+    {id:"h2",desc:"Duct/Immersion Temp Sensor 300mm NTC10K",partNo:"TS-DI 300",code:416,unit:"No",rate:25,labour:0.75,qty:1,markup:1,workPkg:"3"},
+    {id:"h3",desc:"Air Differential Pressure Switch 100-1500Pa",partNo:"PS-DPS1500",code:416,unit:"No",rate:25,labour:0.75,qty:1,markup:1,workPkg:"3"},
+    {id:"h4",desc:"Pressure Transducer 500Pa",partNo:"DS-DPA2500VV",code:416,unit:"No",rate:99.39,labour:0.75,qty:1,markup:1,workPkg:"3"},
+    {id:"h5",desc:"Air Volume Sensor",partNo:"TPAVT8/10",code:416,unit:"No",rate:101,labour:0.75,qty:1,markup:1,workPkg:"3"},
+    {id:"h6",desc:"Wall-mounted Enclosure IP65 600x600x155mm",partNo:"",code:415,unit:"No",rate:110,labour:0,qty:1,markup:1,workPkg:"3"},
+    {id:"h7",desc:"Control Transformer 230V/24V 100VA",partNo:"LP612010T",code:415,unit:"No",rate:27.29,labour:0,qty:1,markup:1,workPkg:"3"},
+    {id:"h8",desc:"Panel & Enclosure Consumables",partNo:"Mark Catania",code:875,unit:"No",rate:20,labour:0,qty:1,markup:1,workPkg:"3"},
+    {id:"h9",desc:"Containment — Signal Cable",partNo:"",code:412,unit:"m",rate:3.66,labour:0.2,qty:50,markup:1,workPkg:"3"},
+    {id:"h10",desc:"3c 0.75mm Signal Cable",partNo:"",code:412,unit:"m",rate:0.55,labour:0.1,qty:100,markup:1,workPkg:"3"},
+    {id:"h11",desc:"Panel Building & Installation",partNo:"Mark Catania",code:420,unit:"No",rate:250,labour:2,qty:1,markup:1,workPkg:"3"},
+    {id:"h12",desc:"Programming — Per Point (AGV)",partNo:"",code:421,unit:"pt",rate:0,labour:0.5,qty:16,markup:1,workPkg:"3"},
+  ]},
+  {id:"b_bms_software",name:"BMS Supervisor Software (EC-Net)",category:"Integrated Systems",description:"EC-Net Supervisor licences, integration pack, designer and installation",lines:[
+    {id:"bs1",desc:"EC-Net Supervisor 0",partNo:"",code:512,unit:"No",rate:506.16,labour:0,qty:1,markup:1,workPkg:"3"},
+    {id:"bs2",desc:"EC-Net Supervisor 0 — 18 Month SMA",partNo:"",code:512,unit:"No",rate:90.92,labour:0,qty:1,markup:1,workPkg:"3"},
+    {id:"bs3",desc:"EC-Net Supervisor Integration Pack 2500",partNo:"",code:512,unit:"No",rate:2118.12,labour:0,qty:1,markup:1,workPkg:"3"},
+    {id:"bs4",desc:"EC-Net Designer 1250",partNo:"",code:512,unit:"No",rate:551.76,labour:0,qty:1,markup:1,workPkg:"3"},
+    {id:"bs5",desc:"Installation of Software — BMS Engineer",partNo:"",code:902,unit:"hr",rate:32,labour:0,qty:4,markup:1,workPkg:"3"},
+  ]},
+  {id:"b_bms_server",name:"BMS Server",category:"Integrated Systems",description:"Server, UPS and rack mount kit with installation",lines:[
+    {id:"bsv1",desc:"Server for BMS Software",partNo:"",code:821,unit:"No",rate:1500,labour:0,qty:1,markup:1,workPkg:"3"},
+    {id:"bsv2",desc:"UPS for BMS Server",partNo:"",code:820,unit:"No",rate:1500,labour:0,qty:1,markup:1,workPkg:"3"},
+    {id:"bsv3",desc:"Rack Mount Kit for BMS Server",partNo:"",code:821,unit:"No",rate:0,labour:0,qty:1,markup:1,workPkg:"3"},
+    {id:"bsv4",desc:"Installation of Server — BMS Engineer",partNo:"",code:902,unit:"hr",rate:32,labour:0,qty:8,markup:1,workPkg:"3"},
+  ]},
+  {id:"b_ip_network",name:"Engineering IP Network",category:"Integrated Systems",description:"Helmholtz 16-port DIN rail switch + UPS",lines:[
+    {id:"ipn1",desc:"Helmholtz 16-Port Switch — DIN Rail",partNo:"",code:821,unit:"No",rate:2000,labour:0,qty:1,markup:1,workPkg:"3"},
+    {id:"ipn2",desc:"UPS for IP Network",partNo:"",code:820,unit:"No",rate:0,labour:0,qty:1,markup:1,workPkg:"3"},
+    {id:"ipn3",desc:"Cat 6 Cable Installation — AGV",partNo:"",code:414,unit:"hr",rate:24.288,labour:0,qty:0,markup:1,workPkg:"3"},
+  ]},
+  {id:"b_field",name:"General Field Equipment",category:"Field Equipment",description:"Field devices — attach to any DDC",lines:[
+    {id:"fd_g1",desc:"Flood Sensor (WDC Leak Module + WLM Cable 5m + PSU + Enclosure)",partNo:"SNS Middle East",code:416,unit:"No",rate:108.9,labour:2,qty:2,markup:1,workPkg:"3"},
+    {id:"fd_g2",desc:"Contactor 3-pole CUBICO 5.5kW 12A 24VAC",partNo:"LZDC12B0",code:416,unit:"No",rate:25,labour:0,qty:1,markup:1,workPkg:"3"},
+    {id:"fd_g3",desc:"Digital 1-Channel Day/Week Timer",partNo:"BZH14071",code:415,unit:"No",rate:24.4,labour:0.5,qty:1,markup:1,workPkg:"3"},
+  ]},
+  ...FIELD_DEVICES.map(fd=>({
+    id:`b_${fd.id}`,name:fd.desc,category:"Common Field Devices",description:"Field device — qty 1, adjust per job",
+    lines:[{id:`l_${fd.id}`,desc:fd.desc,partNo:fd.partNo,code:416,unit:"No",rate:fd.rate,labour:0,qty:1,markup:1,workPkg:"3"}]
+  })),
+];
+
+let _uid=3000;
+const uid=()=>`id_${_uid++}`;
+const fmt=n=>isNaN(n)||n===null?"€0.00":"€"+Number(n).toLocaleString("en-GB",{minimumFractionDigits:2,maximumFractionDigits:2});
+
+const S={
+  inp:{border:"1px solid #d1d5db",borderRadius:4,padding:"4px 7px",fontSize:12,outline:"none",background:"#fff",boxSizing:"border-box",width:"100%"},
+  btn:(bg="#1a2e4a",pad="7px 14px")=>({background:bg,color:"#fff",border:"none",borderRadius:5,padding:pad,cursor:"pointer",fontSize:12,fontWeight:600}),
+  ghost:{border:"1px solid #d1d5db",background:"#fff",borderRadius:5,padding:"5px 12px",cursor:"pointer",fontSize:12},
+  micro:{border:"1px solid #e2e8f0",background:"#fff",borderRadius:3,padding:"2px 5px",cursor:"pointer",fontSize:11,color:"#555"},
+};
+
+function parseCsv(text){const rows=[];const lines=text.split(/\r?\n/);for(const line of lines){if(!line.trim())continue;const cols=[];let cur="",inQ=false;for(let i=0;i<line.length;i++){const c=line[i];if(c==='"'){inQ=!inQ;}else if(c===','&&!inQ){cols.push(cur.trim());cur="";}else cur+=c;}cols.push(cur.trim());rows.push(cols);}return rows;}
+function parsePrice(v){if(!v)return null;const n=parseFloat(String(v).replace(/[^0-9.]/g,""));return isNaN(n)?null:n;}
+
+function PriceListSearch({priceList,onAdd}){
+  const [q,setQ]=useState("");
+  const [sf,setSf]=useState("All");
+  const suppliers=useMemo(()=>["All",...Array.from(new Set(priceList.map(i=>i.supplier).filter(Boolean))).sort()],[priceList]);
+  const results=useMemo(()=>{if(!q.trim())return[];const lq=q.toLowerCase();return priceList.filter(i=>(sf==="All"||i.supplier===sf)&&(i.desc.toLowerCase().includes(lq)||i.partNo.toLowerCase().includes(lq))).slice(0,50);},[q,sf,priceList]);
+  const getRate=i=>i.netPrice??i.listPrice??0;
+  const sc=s=>s==="Fuji"?"#e8f0fe":s==="Belimo"?"#e8f5e9":s==="Distech"?"#fff3e0":"#f5f5f5";
+  return(
+    <div style={{background:"#f0f6ff",border:"1px solid #a0bce0",borderRadius:6,padding:14,marginBottom:12}}>
+      <div style={{fontWeight:700,color:"#1a2e4a",fontSize:13,marginBottom:10}}>🔍 Price List Search</div>
+      <div style={{display:"flex",gap:8,marginBottom:8,flexWrap:"wrap",alignItems:"center"}}>
+        <input autoFocus value={q} onChange={e=>setQ(e.target.value)} placeholder="Type description or part number…" style={{...S.inp,flex:1,minWidth:200,fontSize:13}}/>
+        <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>{suppliers.map(s=><button key={s} onClick={()=>setSf(s)} style={{padding:"4px 10px",borderRadius:4,border:"1px solid #cbd5e1",background:sf===s?"#1a2e4a":"#fff",color:sf===s?"#fff":"#333",cursor:"pointer",fontSize:11,fontWeight:sf===s?700:400}}>{s}</button>)}</div>
+      </div>
+      {!q.trim()&&<div style={{color:"#aaa",fontSize:12,padding:"8px 0"}}>Start typing to search across {priceList.length.toLocaleString()} items…</div>}
+      {q.trim()!==''&&results.length===0&&<div style={{color:"#aaa",fontSize:12,padding:"8px 0"}}>No results found.</div>}
+      {results.length>0&&(
+        <div style={{maxHeight:280,overflowY:"auto",borderRadius:4,border:"1px solid #e2e8f0"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+            <thead><tr style={{background:"#f1f5f9",position:"sticky",top:0}}>{["Supplier","Description","Part No","Net Price","Extra",""].map((h,i)=><th key={i} style={{padding:"5px 8px",textAlign:i===3?"right":"left",fontWeight:600,color:"#555"}}>{h}</th>)}</tr></thead>
+            <tbody>{results.map((item,i)=>(
+              <tr key={i} style={{borderBottom:"1px solid #f1f5f9",background:i%2===0?"#fff":"#fafbfc"}} onMouseEnter={e=>e.currentTarget.style.background="#eef4ff"} onMouseLeave={e=>e.currentTarget.style.background=i%2===0?"#fff":"#fafbfc"}>
+                <td style={{padding:"5px 8px"}}><span style={{background:sc(item.supplier),borderRadius:3,padding:"2px 6px",fontSize:10,fontWeight:600}}>{item.supplier}</span></td>
+                <td style={{padding:"5px 8px",maxWidth:280}}>{item.desc}</td>
+                <td style={{padding:"5px 8px",color:"#555",fontFamily:"monospace",fontSize:11}}>{item.partNo}</td>
+                <td style={{padding:"5px 8px",textAlign:"right",fontWeight:700,color:"#1a2e4a"}}>{fmt(getRate(item))}</td>
+                <td style={{padding:"5px 8px",color:"#aaa",fontSize:11}}>{item.extra}</td>
+                <td style={{padding:"5px 8px"}}><button onClick={()=>onAdd(item)} style={{...S.btn("#4a6741","3px 10px"),fontSize:11}}>+ Add</button></td>
+              </tr>
+            ))}</tbody>
+          </table>
+          {results.length===50&&<div style={{padding:"6px 10px",fontSize:11,color:"#aaa",background:"#f8fafc"}}>Showing first 50 — refine search to narrow down.</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BatchImport({priceList,onImport,onClose}){
+  const [batchText,setBatchText]=useState("");
+  const [result,setResult]=useState(null);
+  const run=()=>{
+    if(!batchText.trim())return;
+    const tokens=batchText.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+    const newRows=[];const errors=[];
+    tokens.forEach(token=>{
+      const commaIdx=token.indexOf(",");
+      const partNo=(commaIdx>=0?token.slice(0,commaIdx):token).trim();
+      const qtyStr=commaIdx>=0?token.slice(commaIdx+1).trim():"";
+      const qty=qtyStr?parseFloat(qtyStr):1;
+      const safeQty=isNaN(qty)||qty<=0?1:qty;
+      const found=priceList.find(i=>i.partNo.trim().toLowerCase()===partNo.toLowerCase());
+      if(found){const rate=found.netPrice??found.listPrice??0;newRows.push({type:"line",id:uid(),desc:found.desc,partNo:found.partNo,code:416,unit:"No",rate,labour:0,qty:safeQty,markup:1,workPkg:"3"});}
+      else{errors.push(partNo);newRows.push({type:"line",id:uid(),desc:`⚠ NOT FOUND — ${partNo}`,partNo,code:416,unit:"No",rate:0,labour:0,qty:safeQty,markup:1,workPkg:"3",_error:true});}
+    });
+    onImport(newRows);setResult({total:tokens.length,errors});
+  };
+  return(
+    <div style={{background:"#f5f0ff",border:"1px solid #b09ad0",borderRadius:6,padding:14,marginBottom:12}}>
+      <div style={{fontWeight:700,color:"#3a1a6a",fontSize:13,marginBottom:6}}>📋 Batch Import by Part Number</div>
+      <div style={{fontSize:11,color:"#666",marginBottom:10,lineHeight:1.6}}>
+        One line per part number. Use a comma to separate part number from qty: <code style={{background:"#ede8f8",padding:"1px 5px",borderRadius:3}}>HS-D TH 140 VV, 3</code><br/>
+        Without a comma, qty defaults to 1. Part numbers with spaces are handled correctly. Exact match only.
+      </div>
+      <textarea value={batchText} onChange={e=>{setBatchText(e.target.value);setResult(null);}} rows={6} placeholder={"01DT-1LN, 3\n01DT-1LR, 1\nHS-D TH 140 VV, 3\nTS-DI 150, 1\n22DC-11"} style={{...S.inp,fontFamily:"monospace",fontSize:12,resize:"vertical",marginBottom:10}}/>
+      {result&&(
+        <div style={{marginBottom:10,padding:"8px 12px",borderRadius:5,background:result.errors.length>0?"#fff3f3":"#f0fff0",border:`1px solid ${result.errors.length>0?"#f0a0a0":"#80c080"}`}}>
+          <div style={{fontWeight:700,fontSize:12,color:result.errors.length>0?"#a00":"#2a7a2a",marginBottom:4}}>
+            {result.errors.length===0?`✅ All ${result.total} part${result.total!==1?"s":""} imported successfully.`:`⚠ ${result.total-result.errors.length} imported · ${result.errors.length} not found`}
+          </div>
+          {result.errors.length>0&&<div style={{fontSize:11,color:"#a00"}}><strong>Not matched:</strong> {result.errors.map((e,i)=><span key={i} style={{background:"#ffe0e0",borderRadius:3,padding:"1px 6px",marginRight:4,fontFamily:"monospace"}}>{e}</span>)}</div>}
+        </div>
+      )}
+      <div style={{display:"flex",gap:8}}>
+        <button onClick={run} disabled={!batchText.trim()} style={S.btn(!batchText.trim()?"#aaa":"#3a1a6a")}>Import →</button>
+        <button onClick={onClose} style={S.ghost}>Close</button>
+      </div>
+    </div>
+  );
+}
+
+function Builder({blocks,estimate,setEstimate,priceList}){
+  const [pickerState,setPickerState]=useState(null);
+  const [pickerCat,setPickerCat]=useState("All");
+  const [pendingName,setPendingName]=useState("");
+  const [showFdPicker,setShowFdPicker]=useState(false);
+  const [fdSearch,setFdSearch]=useState("");
+  const [showExport,setShowExport]=useState(false);
+  const [activePanel,setActivePanel]=useState(null);
+
+  const upd=(k,v)=>setEstimate(e=>({...e,[k]:v}));
+  const togglePanel=p=>setActivePanel(a=>a===p?null:p);
+  const addBlockRows=(block,headerName)=>{
+    const lines=block.lines.map(l=>({type:"line",...l,id:uid()}));
+    if(headerName){setEstimate(e=>({...e,rows:[...e.rows,{type:"header",id:uid(),label:headerName},...lines]}));}
+    else{setEstimate(e=>({...e,rows:[...e.rows,...lines]}));}
+    setPickerState(null);setPendingName("");setPickerCat("All");
+  };
+  const addFieldDevice=fd=>{setEstimate(e=>({...e,rows:[...e.rows,{type:"line",id:uid(),desc:fd.desc,partNo:fd.partNo,code:416,unit:"No",rate:fd.rate,labour:0,qty:1,markup:1,workPkg:"3"}]}));setShowFdPicker(false);setFdSearch("");};
+  const addPriceListItem=item=>{const rate=item.netPrice??item.listPrice??0;setEstimate(e=>({...e,rows:[...e.rows,{type:"line",id:uid(),desc:item.desc,partNo:item.partNo,code:416,unit:"No",rate,labour:0,qty:1,markup:1,workPkg:"3"}]}));};
+  const addBatchRows=rows=>setEstimate(e=>({...e,rows:[...e.rows,...rows]}));
+  const addBlankLine=()=>setEstimate(e=>({...e,rows:[...e.rows,{type:"line",id:uid(),desc:"",partNo:"",code:900,unit:"hr",rate:0,labour:0,qty:1,markup:1,workPkg:""}]}));
+  const updRow=(id,k,v)=>setEstimate(e=>({...e,rows:e.rows.map(r=>r.id===id?{...r,[k]:v}:r)}));
+  const removeRow=id=>setEstimate(e=>({...e,rows:e.rows.filter(r=>r.id!==id)}));
+  const moveRow=(id,dir)=>setEstimate(e=>{const arr=[...e.rows];const i=arr.findIndex(r=>r.id===id);const j=i+dir;if(j<0||j>=arr.length)return e;[arr[i],arr[j]]=[arr[j],arr[i]];return{...e,rows:arr};});
+
+  const lineRows=estimate.rows.filter(r=>r.type==="line");
+  const rateTotal=lineRows.reduce((s,l)=>s+l.qty*l.rate*(l.markup||1),0);
+  const labourTotal=lineRows.reduce((s,l)=>s+l.qty*l.labour,0);
+  const grandTotal=rateTotal+labourTotal;
+
+  const buildCsv=()=>{
+    const q=v=>`"${String(v==null?"":v).replace(/"/g,'""')}"`;
+    const row=arr=>arr.map(q).join(",");
+    const out=[row(["Qty","Unit","Description","Part No","Job Ref","Code","(__)","Work Pkg","Rate","Rate Total","Labour","Labour Total"])];
+    estimate.rows.forEach(r=>{
+      if(r.type==="header"){out.push(row([`*** ${r.label} ***`,"","","","","","","","","","",""]));}
+      else{const rt=(r.qty*r.rate*(r.markup||1)).toFixed(2);const lt=(r.qty*r.labour).toFixed(2);out.push(row([r.qty,r.unit,r.desc,r.partNo||"",estimate.ref||"BMSE_001",r.code,"(__)",r.workPkg||"",r.rate,rt,r.labour,lt]));}
+    });
+    return out.join("\n");
+  };
+
+  const downloadCsv=()=>{
+    const blob=new Blob([buildCsv()],{type:"text/csv"});
+    const a=document.createElement("a");a.href=URL.createObjectURL(blob);
+    a.download=`${estimate.ref||"BMS_Estimate"}_${estimate.date||"export"}.csv`;
+    a.click();URL.revokeObjectURL(a.href);
+  };
+
+  const filteredFd=FIELD_DEVICES.filter(fd=>!fdSearch||fd.desc.toLowerCase().includes(fdSearch.toLowerCase())||fd.partNo.toLowerCase().includes(fdSearch.toLowerCase()));
+  const pickerBlocks=blocks.filter(b=>(pickerCat==="All"||b.category===pickerCat)&&b.category!=="Common Field Devices");
+
+  return(
+    <div style={{display:"flex",gap:18,alignItems:"flex-start"}}>
+      <div style={{flex:1,minWidth:0}}>
+        <Card title="Project Details">
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:10}}>
+            {[["project","Project / Site"],["client","Client"],["ref","Reference No."],["date","Date","date"]].map(([k,label,type])=>(
+              <div key={k}><Label>{label}</Label><input type={type||"text"} value={estimate[k]} onChange={e=>upd(k,e.target.value)} style={S.inp}/></div>
+            ))}
+          </div>
+        </Card>
+        <Card title="Estimate Lines">
+          <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap",alignItems:"center"}}>
+            <button onClick={()=>{setPickerState({step:"name"});setPendingName("");setShowFdPicker(false);setActivePanel(null);}} style={S.btn()}>+ Add Section &amp; Block</button>
+            <button onClick={()=>{setPickerState({step:"block"});setShowFdPicker(false);setActivePanel(null);}} style={S.btn("#2a4e7a")}>+ Add Block</button>
+            <button onClick={()=>{setShowFdPicker(p=>!p);setPickerState(null);setActivePanel(null);}} style={S.btn("#5a7a4a")}>+ Field Device</button>
+            {priceList.length>0&&<button onClick={()=>{setPickerState(null);setShowFdPicker(false);togglePanel("search");}} style={S.btn(activePanel==="search"?"#2a5a8a":"#3a6a9a")}>🔍 Price List Search</button>}
+            {priceList.length>0&&<button onClick={()=>{setPickerState(null);setShowFdPicker(false);togglePanel("batch");}} style={S.btn(activePanel==="batch"?"#5a2a7a":"#7a4aaa")}>📋 Batch Import</button>}
+            <button onClick={addBlankLine} style={S.btn("#4a6741")}>+ Blank Line</button>
+            {estimate.rows.length>0&&<button onClick={()=>setShowExport(p=>!p)} style={S.btn("#7c4d14")}>📤 Export CSV</button>}
+          </div>
+
+          {activePanel==="search"&&<PriceListSearch priceList={priceList} onAdd={addPriceListItem}/>}
+          {activePanel==="batch"&&<BatchImport priceList={priceList} onImport={addBatchRows} onClose={()=>setActivePanel(null)}/>}
+
+          {showFdPicker&&(
+            <div style={{background:"#f0f6f0",border:"1px solid #8ab08a",borderRadius:6,padding:12,marginBottom:12}}>
+              <div style={{fontWeight:700,color:"#2a5a2a",fontSize:12,marginBottom:8}}>Select Field Device — adds at qty 1</div>
+              <input autoFocus value={fdSearch} onChange={e=>setFdSearch(e.target.value)} placeholder="Search by description or part no…" style={{...S.inp,marginBottom:8}}/>
+              <div style={{maxHeight:200,overflowY:"auto"}}>
+                {filteredFd.map(fd=>(
+                  <div key={fd.id} onClick={()=>addFieldDevice(fd)} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 8px",cursor:"pointer",background:"#fff",border:"1px solid #e2e8f0",borderRadius:4,marginBottom:4}} onMouseEnter={e=>e.currentTarget.style.borderColor="#2a5a2a"} onMouseLeave={e=>e.currentTarget.style.borderColor="#e2e8f0"}>
+                    <div><div style={{fontSize:12,fontWeight:600,color:"#1a2e4a"}}>{fd.desc}</div><div style={{fontSize:11,color:"#888"}}>{fd.partNo}</div></div>
+                    <div style={{fontWeight:700,color:"#4a6741",fontSize:12,marginLeft:12,whiteSpace:"nowrap"}}>{fmt(fd.rate)}</div>
+                  </div>
+                ))}
+                {filteredFd.length===0&&<div style={{color:"#aaa",padding:8}}>No devices found.</div>}
+              </div>
+              <button onClick={()=>{setShowFdPicker(false);setFdSearch("");}} style={{...S.ghost,marginTop:8,fontSize:11}}>Close</button>
+            </div>
+          )}
+
+          {pickerState?.step==="name"&&(
+            <div style={{background:"#fffbea",border:"1px solid #f0d060",borderRadius:6,padding:14,marginBottom:12}}>
+              <div style={{fontWeight:700,color:"#7c4d14",marginBottom:8,fontSize:13}}>Step 1 — Name this section</div>
+              <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                <input autoFocus value={pendingName} onChange={e=>setPendingName(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&pendingName.trim())setPickerState({step:"block"});}} placeholder="e.g. AHU-01 — Heat Recovery Unit" style={{...S.inp,flex:1,fontSize:13}}/>
+                <button onClick={()=>{if(pendingName.trim())setPickerState({step:"block"});}} disabled={!pendingName.trim()} style={S.btn(pendingName.trim()?"#1a2e4a":"#aaa")}>Next →</button>
+                <button onClick={()=>{setPickerState(null);setPendingName("");}} style={S.ghost}>Cancel</button>
+              </div>
+            </div>
+          )}
+          {pickerState?.step==="block"&&(
+            <div style={{background:"#f0f6ff",border:"1px solid #a0bce0",borderRadius:6,padding:14,marginBottom:12}}>
+              <div style={{display:"flex",alignItems:"center",marginBottom:10,gap:10,flexWrap:"wrap"}}>
+                <div style={{fontWeight:700,color:"#1a2e4a",fontSize:13}}>{pendingName?<>Select block for: <span style={{background:"#1a2e4a",color:"#fff",borderRadius:4,padding:"2px 8px",fontSize:12}}>{pendingName}</span></>:"Select block to add:"}</div>
+                {pendingName&&<button onClick={()=>setPickerState({step:"name"})} style={{...S.ghost,fontSize:11,marginLeft:"auto"}}>← Back</button>}
+                <button onClick={()=>{setPickerState(null);setPendingName("");}} style={{...S.ghost,fontSize:11,marginLeft:pendingName?"0":"auto"}}>Cancel</button>
+              </div>
+              <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap"}}>
+                {["All",...CATS.filter(c=>c!=="Common Field Devices")].map(c=>(
+                  <button key={c} onClick={()=>setPickerCat(c)} style={{padding:"3px 10px",borderRadius:4,border:"1px solid #cbd5e1",background:pickerCat===c?"#1a2e4a":"#fff",color:pickerCat===c?"#fff":"#333",cursor:"pointer",fontSize:11}}>{c}</button>
+                ))}
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(210px,1fr))",gap:8}}>
+                {pickerBlocks.map(b=>(
+                  <div key={b.id} onClick={()=>addBlockRows(b,pendingName||null)} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:5,padding:"8px 10px",cursor:"pointer"}} onMouseEnter={e=>e.currentTarget.style.borderColor="#1a2e4a"} onMouseLeave={e=>e.currentTarget.style.borderColor="#e2e8f0"}>
+                    <div style={{fontWeight:600,fontSize:12,color:"#1a2e4a"}}>{b.name}</div>
+                    <div style={{fontSize:11,color:"#888",marginTop:2}}>{b.description}</div>
+                    <div style={{fontSize:11,color:"#aaa",marginTop:2}}>{b.lines.length} line items</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {estimate.rows.length===0
+            ?<div style={{color:"#aaa",textAlign:"center",padding:"24px 0"}}>No lines yet — use the buttons above to start building.</div>
+            :(
+            <div style={{overflowX:"auto"}}>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+                <thead><tr style={{background:"#f1f5f9"}}>
+                  {["","Qty","Unit","Description","Part No","Code","WkPkg","Rate €","Mkup","Rate Total","Lab €","Lab Total",""].map((h,i)=>(
+                    <th key={i} style={{padding:"5px 6px",textAlign:"left",fontWeight:600,color:"#555",whiteSpace:"nowrap"}}>{h}</th>
+                  ))}
+                </tr></thead>
+                <tbody>
+                  {estimate.rows.map((r,idx)=>{
+                    if(r.type==="header")return(
+                      <tr key={r.id} style={{background:"#1a2e4a"}}>
+                        <td style={{padding:"3px",whiteSpace:"nowrap"}}>
+                          <button onClick={()=>moveRow(r.id,-1)} style={{...S.micro,background:"transparent",color:"#ccc",border:"1px solid #456"}}>▲</button>
+                          <button onClick={()=>moveRow(r.id,1)} style={{...S.micro,background:"transparent",color:"#ccc",border:"1px solid #456"}}>▼</button>
+                        </td>
+                        <td colSpan={11} style={{padding:"6px 8px"}}><input value={r.label} onChange={e=>updRow(r.id,"label",e.target.value)} style={{background:"transparent",border:"none",outline:"none",color:"#fff",fontWeight:700,fontSize:12,width:"100%"}}/></td>
+                        <td><button onClick={()=>removeRow(r.id)} style={{...S.micro,background:"transparent",color:"#f88",border:"1px solid #456"}}>✕</button></td>
+                      </tr>
+                    );
+                    const rt=r.qty*r.rate*(r.markup||1);const lt=r.qty*r.labour;
+                    return(
+                      <tr key={r.id} style={{borderBottom:"1px solid #f1f5f9",background:r._error?"#fff0f0":idx%2===0?"#fff":"#fafbfc"}}>
+                        <td style={{padding:"3px",whiteSpace:"nowrap"}}><button onClick={()=>moveRow(r.id,-1)} style={S.micro}>▲</button><button onClick={()=>moveRow(r.id,1)} style={S.micro}>▼</button></td>
+                        <td><input type="number" value={r.qty} onChange={e=>updRow(r.id,"qty",parseFloat(e.target.value)||0)} style={{...S.inp,width:45}}/></td>
+                        <td><input value={r.unit} onChange={e=>updRow(r.id,"unit",e.target.value)} style={{...S.inp,width:40}}/></td>
+                        <td style={{minWidth:160}}><input value={r.desc} onChange={e=>updRow(r.id,"desc",e.target.value)} style={S.inp}/></td>
+                        <td><input value={r.partNo||""} onChange={e=>updRow(r.id,"partNo",e.target.value)} style={{...S.inp,width:80}}/></td>
+                        <td><select value={r.code} onChange={e=>updRow(r.id,"code",parseInt(e.target.value))} style={{...S.inp,width:60,fontSize:11}}>{Object.entries(CODES).map(([c,n])=><option key={c} value={c}>{c}</option>)}</select></td>
+                        <td><input value={r.workPkg||""} onChange={e=>updRow(r.id,"workPkg",e.target.value)} style={{...S.inp,width:48}}/></td>
+                        <td><input type="number" value={r.rate} onChange={e=>updRow(r.id,"rate",parseFloat(e.target.value)||0)} style={{...S.inp,width:65}}/></td>
+                        <td><input type="number" step="0.01" value={r.markup||1} onChange={e=>updRow(r.id,"markup",parseFloat(e.target.value)||1)} style={{...S.inp,width:48}}/></td>
+                        <td style={{fontWeight:600,whiteSpace:"nowrap",color:"#1a2e4a",padding:"3px 6px"}}>{fmt(rt)}</td>
+                        <td><input type="number" value={r.labour} onChange={e=>updRow(r.id,"labour",parseFloat(e.target.value)||0)} style={{...S.inp,width:60}}/></td>
+                        <td style={{fontWeight:600,whiteSpace:"nowrap",color:"#4a6741",padding:"3px 6px"}}>{fmt(lt)}</td>
+                        <td><button onClick={()=>removeRow(r.id)} style={{...S.micro,color:"#c00"}}>✕</button></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+        <Card title="Notes / Scope / Exclusions">
+          <textarea value={estimate.notes} onChange={e=>upd("notes",e.target.value)} rows={3} style={{...S.inp,resize:"vertical"}} placeholder="Scope clarifications, exclusions, assumptions…"/>
+        </Card>
+        {showExport&&(
+          <Card title="📤 CSV Export">
+            <div style={{fontSize:11,color:"#555",marginBottom:8}}>Click Download to save directly, or copy from the text box below.</div>
+            <button onClick={downloadCsv} style={{...S.btn("#1a2e4a"),marginBottom:10}}>⬇ Download CSV</button>
+            <textarea readOnly value={buildCsv()} rows={14} style={{...S.inp,fontFamily:"monospace",fontSize:11,resize:"vertical",background:"#f8fafc"}} onFocus={e=>e.target.select()}/>
+            <button onClick={()=>setShowExport(false)} style={{...S.ghost,marginTop:8}}>Close</button>
+          </Card>
+        )}
+      </div>
+      <div style={{width:210,flexShrink:0}}>
+        <Card title="Summary">
+          <Row label="Rate Total" val={fmt(rateTotal)}/>
+          <Row label="Labour Total" val={fmt(labourTotal)} bold={false} color="#4a6741"/>
+          <div style={{borderTop:"2px solid #1a2e4a",marginTop:6,paddingTop:6}}>
+            <Row label="Grand Total" val={fmt(grandTotal)} bold color="#1a2e4a"/>
+          </div>
+          <button onClick={()=>setShowExport(p=>!p)} style={{...S.btn(),width:"100%",marginTop:10}}>📤 Export CSV</button>
+        </Card>
+        {priceList.length===0&&(
+          <div style={{background:"#fffbea",border:"1px solid #f0d060",borderRadius:6,padding:10,fontSize:11,color:"#7c4d14"}}>
+            💡 Load a Price List CSV via the header button to enable Price List Search and Batch Import.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Library({blocks,setBlocks}){
+  const [filterCat,setFilterCat]=useState("All");
+  const [expanded,setExpanded]=useState(null);
+  const [editBlock,setEditBlock]=useState(null);
+  const filtered=blocks.filter(b=>filterCat==="All"||b.category===filterCat);
+  const saveBlock=b=>{setBlocks(prev=>prev.some(x=>x.id===b.id)?prev.map(x=>x.id===b.id?b:x):[...prev,b]);setEditBlock(null);};
+  const deleteBlock=id=>{if(window.confirm("Delete this block?"))setBlocks(b=>b.filter(x=>x.id!==id));};
+  const newBlock=()=>setEditBlock({id:uid(),name:"New Block",category:"DDC Controllers",description:"",lines:[]});
+  if(editBlock)return <BlockEditor block={editBlock} onSave={saveBlock} onCancel={()=>setEditBlock(null)}/>;
+  return(
+    <Card title="Block Library">
+      <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}>
+        {["All",...CATS].map(c=><button key={c} onClick={()=>setFilterCat(c)} style={{padding:"3px 12px",borderRadius:4,border:"1px solid #cbd5e1",background:filterCat===c?"#1a2e4a":"#fff",color:filterCat===c?"#fff":"#333",cursor:"pointer",fontSize:12}}>{c}</button>)}
+        <button onClick={newBlock} style={{...S.btn("#4a6741"),marginLeft:"auto"}}>+ New Block</button>
+      </div>
+      {filtered.map(b=>(
+        <div key={b.id} style={{border:"1px solid #e2e8f0",borderRadius:6,marginBottom:10,overflow:"hidden"}}>
+          <div style={{display:"flex",alignItems:"center",padding:"10px 14px",background:"#f8fafc",cursor:"pointer"}} onClick={()=>setExpanded(expanded===b.id?null:b.id)}>
+            <div>
+              <span style={{fontWeight:700,color:"#1a2e4a"}}>{b.name}</span>
+              <span style={{marginLeft:10,fontSize:11,color:"#888"}}>{b.category} · {b.lines.length} line{b.lines.length!==1?"s":""}</span>
+              {b.description&&<div style={{fontSize:11,color:"#aaa",marginTop:1}}>{b.description}</div>}
+            </div>
+            <div style={{marginLeft:"auto",display:"flex",gap:6}}>
+              <button onClick={e=>{e.stopPropagation();setEditBlock(b);}} style={S.ghost}>Edit</button>
+              <button onClick={e=>{e.stopPropagation();deleteBlock(b.id);}} style={{...S.ghost,color:"#c00"}}>Delete</button>
+              <span style={{marginLeft:4,color:"#aaa"}}>{expanded===b.id?"▲":"▼"}</span>
+            </div>
+          </div>
+          {expanded===b.id&&(
+            <div style={{overflowX:"auto",padding:"0 4px 8px"}}>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+                <thead><tr style={{background:"#f1f5f9"}}>{["Qty","Unit","Description","Part No","Code","Rate €","Markup","Labour €"].map((h,i)=><th key={i} style={{padding:"5px 8px",textAlign:"left",fontWeight:600,color:"#555"}}>{h}</th>)}</tr></thead>
+                <tbody>{b.lines.map((l,i)=>(
+                  <tr key={l.id} style={{borderBottom:"1px solid #f1f5f9",background:i%2===0?"#fff":"#fafbfc"}}>
+                    <td style={{padding:"4px 8px"}}>{l.qty}</td><td style={{padding:"4px 8px"}}>{l.unit}</td>
+                    <td style={{padding:"4px 8px"}}>{l.desc}</td><td style={{padding:"4px 8px",color:"#888"}}>{l.partNo}</td>
+                    <td style={{padding:"4px 8px"}}><span style={{background:"#e8f0fe",borderRadius:3,padding:"1px 5px",fontSize:10}}>{l.code}</span></td>
+                    <td style={{padding:"4px 8px"}}>{fmt(l.rate)}</td><td style={{padding:"4px 8px",color:"#888"}}>{l.markup||1}x</td>
+                    <td style={{padding:"4px 8px",color:"#4a6741"}}>{fmt(l.labour)}</td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      ))}
+    </Card>
+  );
+}
+
+function BlockEditor({block,onSave,onCancel}){
+  const [b,setB]=useState({...block,lines:block.lines.map(l=>({...l}))});
+  const updMeta=(k,v)=>setB(x=>({...x,[k]:v}));
+  const updLine=(id,k,v)=>setB(x=>({...x,lines:x.lines.map(l=>l.id===id?{...l,[k]:v}:l)}));
+  const removeLine=id=>setB(x=>({...x,lines:x.lines.filter(l=>l.id!==id)}));
+  const addLine=()=>setB(x=>({...x,lines:[...x.lines,{id:uid(),desc:"",partNo:"",code:415,unit:"No",rate:0,labour:0,qty:1,markup:1,workPkg:"3"}]}));
+  const moveLine=(id,dir)=>setB(x=>{const arr=[...x.lines];const i=arr.findIndex(l=>l.id===id);const j=i+dir;if(j<0||j>=arr.length)return x;[arr[i],arr[j]]=[arr[j],arr[i]];return{...x,lines:arr};});
+  return(
+    <Card title={`Editing: ${b.name}`}>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:14}}>
+        <div><Label>Block Name</Label><input value={b.name} onChange={e=>updMeta("name",e.target.value)} style={S.inp}/></div>
+        <div><Label>Category</Label><select value={b.category} onChange={e=>updMeta("category",e.target.value)} style={S.inp}>{CATS.map(c=><option key={c}>{c}</option>)}</select></div>
+        <div><Label>Description</Label><input value={b.description} onChange={e=>updMeta("description",e.target.value)} style={S.inp}/></div>
+      </div>
+      <div style={{overflowX:"auto"}}>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+          <thead><tr style={{background:"#f1f5f9"}}>{["","Qty","Unit","Description","Part No","Code","WkPkg","Rate €","Markup","Labour €",""].map((h,i)=><th key={i} style={{padding:"5px 6px",textAlign:"left",fontWeight:600,color:"#555"}}>{h}</th>)}</tr></thead>
+          <tbody>{b.lines.map((l,idx)=>(
+            <tr key={l.id} style={{borderBottom:"1px solid #f1f5f9",background:idx%2===0?"#fff":"#fafbfc"}}>
+              <td><button onClick={()=>moveLine(l.id,-1)} style={S.micro}>▲</button><button onClick={()=>moveLine(l.id,1)} style={S.micro}>▼</button></td>
+              <td><input type="number" value={l.qty} onChange={e=>updLine(l.id,"qty",parseFloat(e.target.value)||0)} style={{...S.inp,width:45}}/></td>
+              <td><input value={l.unit} onChange={e=>updLine(l.id,"unit",e.target.value)} style={{...S.inp,width:40}}/></td>
+              <td style={{minWidth:160}}><input value={l.desc} onChange={e=>updLine(l.id,"desc",e.target.value)} style={S.inp}/></td>
+              <td><input value={l.partNo||""} onChange={e=>updLine(l.id,"partNo",e.target.value)} style={{...S.inp,width:80}}/></td>
+              <td><select value={l.code} onChange={e=>updLine(l.id,"code",parseInt(e.target.value))} style={{...S.inp,width:65,fontSize:11}}>{Object.entries(CODES).map(([c,n])=><option key={c} value={c}>{c} — {n}</option>)}</select></td>
+              <td><input value={l.workPkg||""} onChange={e=>updLine(l.id,"workPkg",e.target.value)} style={{...S.inp,width:45}}/></td>
+              <td><input type="number" value={l.rate} onChange={e=>updLine(l.id,"rate",parseFloat(e.target.value)||0)} style={{...S.inp,width:65}}/></td>
+              <td><input type="number" step="0.01" value={l.markup||1} onChange={e=>updLine(l.id,"markup",parseFloat(e.target.value)||1)} style={{...S.inp,width:50}}/></td>
+              <td><input type="number" value={l.labour} onChange={e=>updLine(l.id,"labour",parseFloat(e.target.value)||0)} style={{...S.inp,width:60}}/></td>
+              <td><button onClick={()=>removeLine(l.id)} style={{...S.micro,color:"#c00"}}>✕</button></td>
+            </tr>
+          ))}</tbody>
+        </table>
+      </div>
+      <div style={{display:"flex",gap:8,marginTop:12}}>
+        <button onClick={addLine} style={S.btn("#4a6741")}>+ Add Line</button>
+        <button onClick={()=>onSave(b)} style={S.btn()}>Save Block</button>
+        <button onClick={onCancel} style={S.ghost}>Cancel</button>
+      </div>
+    </Card>
+  );
+}
+
+function App(){
+  const [tab,setTab]=useState(0);
+  const [blocks,setBlocks]=useState(INITIAL_BLOCKS);
+  const [estimate,setEstimate]=useState({project:"",client:"",ref:"",date:new Date().toISOString().slice(0,10),notes:"",rows:[]});
+  const [priceList,setPriceList]=useState([]);
+  const fileRef=useRef();
+  const loadCsv=e=>{
+    const file=e.target.files[0];if(!file)return;
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      const rows=parseCsv(ev.target.result);if(rows.length<2)return;
+      const items=rows.slice(1).map(r=>({supplier:r[0]||"",desc:r[1]||"",partNo:r[2]||"",listPrice:parsePrice(r[3]),netPrice:parsePrice(r[4]),extra:r[5]||""})).filter(i=>i.desc||i.partNo);
+      setPriceList(items);
+    };
+    reader.readAsText(file);
+  };
+  return(
+    <div style={{fontFamily:"Segoe UI,sans-serif",fontSize:13,background:"#f0f2f5",minHeight:"100vh"}}>
+      <div style={{background:"#1a2e4a",color:"#fff",padding:"12px 24px",display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}}>
+        <span style={{fontSize:17,fontWeight:700}}>⚙ BMS Estimating Tool</span>
+        <div style={{marginLeft:24,display:"flex",alignItems:"center",gap:8}}>
+          <input ref={fileRef} type="file" accept=".csv" style={{display:"none"}} onChange={loadCsv}/>
+          <button onClick={()=>fileRef.current.click()} style={{...S.btn("#2e5c8a","5px 12px"),fontSize:11}}>
+            📂 {priceList.length>0?`Price List Loaded (${priceList.length} items)`:"Load Price List CSV"}
+          </button>
+          {priceList.length>0&&<button onClick={()=>setPriceList([])} style={{...S.btn("#7a2a2a","4px 10px"),fontSize:11}}>✕ Clear</button>}
+        </div>
+        <span style={{marginLeft:"auto",fontSize:11,opacity:0.5}}>Panta Contracting Limited · v2.5 · Guy · 13 Mar 2026</span>
+      </div>
+      <div style={{background:"#fff",borderBottom:"2px solid #e2e8f0",display:"flex",paddingLeft:24}}>
+        {["Estimate Builder","Block Library"].map((t,i)=>(
+          <button key={i} onClick={()=>setTab(i)} style={{padding:"10px 20px",border:"none",background:"none",cursor:"pointer",fontWeight:i===tab?700:400,color:i===tab?"#1a2e4a":"#666",borderBottom:i===tab?"3px solid #1a2e4a":"3px solid transparent",fontSize:13,marginBottom:-2}}>{t}</button>
+        ))}
+      </div>
+      <div style={{padding:20}}>
+        {tab===0?<Builder blocks={blocks} estimate={estimate} setEstimate={setEstimate} priceList={priceList}/>:<Library blocks={blocks} setBlocks={setBlocks}/>}
+      </div>
+    </div>
+  );
+}
+
+function Card({title,children}){return(<div style={{background:"#fff",borderRadius:8,border:"1px solid #e2e8f0",padding:16,marginBottom:16}}><div style={{fontWeight:700,fontSize:13,color:"#1a2e4a",marginBottom:12,borderBottom:"1px solid #f0f0f0",paddingBottom:8}}>{title}</div>{children}</div>);}
+function Label({children}){return <div style={{fontSize:11,color:"#888",marginBottom:3}}>{children}</div>;}
+function Row({label,val,bold=true,color="#333"}){return(<div style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #f0f0f0",fontSize:12}}><span style={{color:"#555"}}>{label}</span><span style={{fontWeight:bold?700:500,color}}>{val}</span></div>);}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
