@@ -42,39 +42,42 @@ A lightweight, browser-based estimating tool for BMS and controls projects. Buil
 
 ---
 
-## Price List Integration
+## Prices: loaded from file, never stored here
 
-The tool accepts a **supplier price list CSV** with the following column structure:
+This repository holds **no prices**. Block lines, field devices and labour lines show €0 until a price file is loaded.
 
-| Col | Field | Notes |
-|---|---|---|
-| 1 | Supplier | e.g. `Belimo`, `Distech`, `Fuji` |
-| 2 | Description | Full item description |
-| 3 | Part Number | Manufacturer part number |
-| 4 | List Price | Used as fallback if selling price is empty |
-| 5 | Selling Price | **Primary rate used in estimates** |
-| 6 | Extra | Optional notes / lead time / remarks |
+Load **`Estimating_Price_File.csv`** with **📂 Load Price File (CSV)**. The file is built locally (OneDrive) by
+`Files/_Estimating_Core/scripts/build_price_file.py` from:
 
-To load: click **📂 Load Price List CSV** in the header and select your file.
+- the **Pricing Library** (supplier cost prices; net, original supplier document first, newest); and
+- **`panta_rates.csv`** (Panta cost rates: labour, panel building, containment, allowances).
+
+On load, every block line is priced in this order:
+1. a Panta rate for that exact block line (key `PR:<block_id>:<line_id>`); then
+2. the line's manufacturer part number.
+
+A banner reports how many block lines were priced and lists any left at €0.
+Non-EUR library prices are listed in search with a warning but are never used to fill a block.
+
+**All rates are cost.** Markup defaults to 1; set it per line.
+
+File columns 1-6 (read by the app): `Supplier, Description, Part Number, List Price, Net Price, Extra`.
+Columns 7+ are traceability (`Currency, UoM, Price_ID, Source_Doc_ID, Document_Date, Price_Basis, Source`).
 
 ### Price List Search
 Type any description fragment or part number. Results update in real time. Click **+ Add** to insert a line at qty 1.
 
 ### Batch Import
-Click **📋 Batch Import** and paste part numbers — one per line, with an optional quantity after a comma:
+Click **📋 Batch Import** and paste part numbers, one per line, with an optional quantity after a comma:
 
 ```
 01DT-1LN, 3
-01DT-1LR, 1
 HS-D TH 140 VV, 3
 TS-DI 150, 1
-22DC-11
 ```
 
-- Part numbers with spaces are handled correctly — the comma is the only delimiter
 - Exact match only against manufacturer part number (no fuzzy logic)
 - Unmatched part numbers are added as **error lines** (highlighted red) so nothing is silently dropped
-- A result banner summarises matched vs unmatched after import
 
 ---
 
@@ -119,7 +122,7 @@ Export is triggered via **📤 Export CSV** in the toolbar or summary panel. The
 
 ```
 /
-├── index.html              # The full application (single file)
+├── index.html              # The full application (single file; no prices)
 └── README.md               # This file
 ```
 
@@ -134,7 +137,7 @@ All React, ReactDOM and Babel dependencies are loaded from the Cloudflare CDN at
 | UI framework | React 18 (via CDN) |
 | JSX compilation | Babel Standalone (in-browser) |
 | Styling | Inline styles — no CSS framework |
-| Data | Hardcoded block library + runtime CSV load |
+| Data | Block structure in code; all prices from runtime CSV load |
 | Build tooling | None |
 
 ---
