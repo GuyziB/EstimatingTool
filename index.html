@@ -539,6 +539,9 @@ function Builder({blocks,estimate,setEstimate,priceList,defaultLabRate}){
   const addFieldDevice=fd=>{setEstimate(e=>({...e,rows:[...e.rows,{type:"line",id:uid(),desc:fd.desc,partNo:fd.partNo,code:416,unit:"No",rate:fdRate(fd),labour:0,qty:1,markup:1,workPkg:"3"}]}));setShowFdPicker(false);setFdSearch("");};
   const addPriceListItem=item=>{const rate=item.netPrice??item.listPrice??0;setEstimate(e=>({...e,rows:[...e.rows,{type:"line",id:uid(),desc:item.desc,partNo:item.partNo,code:416,unit:"No",rate,labour:0,qty:1,markup:1,workPkg:"3"}]}));};
   const addBatchRows=rows=>setEstimate(e=>({...e,rows:[...e.rows,...rows]}));
+  // Internal Panta keys are for pricing blocks only; never offered as items
+  const searchList=useMemo(()=>priceList.filter(i=>!/^(PR:|LAB:)/i.test(i.partNo||"")),[priceList]);
+  const addLabourLine=()=>setEstimate(e=>({...e,rows:[...e.rows,{type:"line",id:uid(),desc:"BMS Pair — Labour",partNo:"",code:900,unit:"hr",rate:0,labour:1,qty:1,markup:1,workPkg:"3"}]}));
   const addBlankLine=()=>setEstimate(e=>({...e,rows:[...e.rows,{type:"line",id:uid(),desc:"",partNo:"",code:416,unit:"No",rate:0,labour:0,qty:1,markup:1,workPkg:"3"}]}));
   const updRow=(id,k,v)=>setEstimate(e=>({...e,rows:e.rows.map(r=>r.id===id?{...r,[k]:v}:r)}));
   const removeRow=id=>setEstimate(e=>({...e,rows:e.rows.filter(r=>r.id!==id)}));
@@ -590,10 +593,11 @@ function Builder({blocks,estimate,setEstimate,priceList,defaultLabRate}){
             {priceList.length>0&&<button onClick={()=>{setPickerState(null);setShowFdPicker(false);togglePanel("search");}} style={S.btn(activePanel==="search"?"#2a5a8a":"#3a6a9a")}>🔍 Price List Search</button>}
             {priceList.length>0&&<button onClick={()=>{setPickerState(null);setShowFdPicker(false);togglePanel("batch");}} style={S.btn(activePanel==="batch"?"#5a2a7a":"#7a4aaa")}>📋 Batch Import</button>}
             <button onClick={addBlankLine} style={S.btn("#4a6741")}>+ Blank Line</button>
+            <button onClick={addLabourLine} style={S.btn("#4a6741")} title="Adds a labour line: set Qty to the hours">+ Labour Line</button>
             {estimate.rows.length>0&&<button onClick={()=>setShowExport(p=>!p)} style={S.btn("#7c4d14")}>📤 Export CSV</button>}
           </div>
 
-          {activePanel==="search"&&<PriceListSearch priceList={priceList} onAdd={addPriceListItem}/>}
+          {activePanel==="search"&&<PriceListSearch priceList={searchList} onAdd={addPriceListItem}/>}
           {activePanel==="batch"&&<BatchImport priceList={priceList} onImport={addBatchRows} onClose={()=>setActivePanel(null)}/>}
 
           {showFdPicker&&(
@@ -856,7 +860,7 @@ function App(){
           </button>
           {priceList.length>0&&<button onClick={()=>{setPriceList([]);setBlocks(applyPrices(blocks,new Map()).blocks);setPriceInfo(null);}} style={{...S.btn("#7a2a2a","4px 10px"),fontSize:11}}>✕ Clear</button>}
         </div>
-        <span style={{marginLeft:"auto",fontSize:11,opacity:0.5}}>Panta Contracting Limited · v3.1 · labour in hours · 9 Nov 2026</span>
+        <span style={{marginLeft:"auto",fontSize:11,opacity:0.5}}>Panta Contracting Limited · v3.2 · labour in hours · 9 Nov 2026</span>
       </div>
       <div style={{background:"#fff",borderBottom:"2px solid #e2e8f0",display:"flex",paddingLeft:24}}>
         {["Estimate Builder","Block Library"].map((t,i)=>(
