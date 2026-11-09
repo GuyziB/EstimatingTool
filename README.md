@@ -59,7 +59,14 @@ On load, every block line is priced in this order:
 A banner reports how many block lines were priced and lists any left at €0.
 Non-EUR library prices are listed in search with a warning but are never used to fill a block.
 
-**All rates are cost.** Markup defaults to 1; set it per line.
+**All rates are cost.** Markup defaults to 1; set it per line (materials).
+
+## Labour: hours, not euros
+
+- **Labour** column = hours per unit; **Labour Total** = qty × hours (exported as hours, matching Elec_Est columns S and T).
+- Labour is never priced per line. The summary shows total hours × the **estimate labour rate** (default €33/h from `LAB:RATE` in the price file; editable per estimate).
+- Labour block lines (BMS Pair, BMS Engineer, AGV, Tech) insert as 1 h per unit at Rate €0. Exceptions at other rates are amended by hand.
+- Grand total = material + labour cost.
 
 File columns 1-6 (read by the app): `Supplier, Description, Part Number, List Price, Net Price, Extra`.
 Columns 7+ are traceability (`Currency, UoM, Price_ID, Source_Doc_ID, Document_Date, Price_Basis, Source`).

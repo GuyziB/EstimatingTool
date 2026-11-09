@@ -33,10 +33,10 @@ const CATS=["DDC Controllers","Control Panels","Integrated Systems","Field Equip
 
 const INITIAL_BLOCKS = [
   {id:"b_labour",name:"Labour Rates",category:"Labour",description:"Standard BMS labour rates",lines:[
-    {id:"l1",desc:"AGV Pair",partNo:"",code:900,unit:"hr",rate:0,labour:0,qty:1,markup:1,workPkg:""},
-    {id:"l2",desc:"BMS Pair",partNo:"",code:900,unit:"hr",rate:0,labour:0,qty:1,markup:1,workPkg:""},
-    {id:"l3",desc:"BMS Tech — Single Rate",partNo:"",code:900,unit:"hr",rate:0,labour:0,qty:1,markup:1,workPkg:""},
-    {id:"l4",desc:"BMS Engineer — Single Rate",partNo:"",code:900,unit:"hr",rate:0,labour:0,qty:1,markup:1,workPkg:""},
+    {id:"l1",lab:true,desc:"AGV Pair",partNo:"",code:900,unit:"hr",rate:0,labour:1,qty:1,markup:1,workPkg:""},
+    {id:"l2",lab:true,desc:"BMS Pair",partNo:"",code:900,unit:"hr",rate:0,labour:1,qty:1,markup:1,workPkg:""},
+    {id:"l3",lab:true,desc:"BMS Tech — Single Rate",partNo:"",code:900,unit:"hr",rate:0,labour:1,qty:1,markup:1,workPkg:""},
+    {id:"l4",lab:true,desc:"BMS Engineer — Single Rate",partNo:"",code:900,unit:"hr",rate:0,labour:1,qty:1,markup:1,workPkg:""},
   ]},
   {id:"b_ddc_small",name:"DDC Small (ECY-203)",category:"DDC Controllers",description:"Distech ECY-203 controller with LL signal cable",lines:[
     {id:"s1",desc:"ECY-203-C1 — 8UI 8UO 3Modbus BACnet/IP",partNo:"ECY-203-C1",code:410,unit:"No",rate:0,labour:0,qty:1,markup:1,workPkg:"3"},
@@ -149,8 +149,8 @@ const INITIAL_BLOCKS = [
     {id:"v17",desc:"Fuji HVAC AR1 3ph 400V",partNo:"FRN15AR1L-4E",code:415,unit:"No",rate:0,labour:0,qty:2,markup:1,workPkg:"3"},
     {id:"v18",desc:"Consumables",partNo:"Misc",code:875,unit:"No",rate:0,labour:0,qty:2,markup:1,workPkg:"3"},
     {id:"v19",desc:"Panel Building",partNo:"Catania",code:420,unit:"No",rate:0,labour:0,qty:2,markup:1,workPkg:"3"},
-    {id:"v20",desc:"Installation and Functional Testing — AGV",partNo:"",code:902,unit:"hr",rate:0,labour:0,qty:8,markup:1,workPkg:"3"},
-    {id:"v21",desc:"Installation and Functional Testing — BMS Engineer",partNo:"",code:902,unit:"hr",rate:0,labour:0,qty:4,markup:1,workPkg:"3"},
+    {id:"v20",lab:true,desc:"Installation and Functional Testing — AGV",partNo:"",code:902,unit:"hr",rate:0,labour:1,qty:8,markup:1,workPkg:"3"},
+    {id:"v21",lab:true,desc:"Installation and Functional Testing — BMS Engineer",partNo:"",code:902,unit:"hr",rate:0,labour:1,qty:4,markup:1,workPkg:"3"},
   ]},
   {id:"b_fdcp",name:"Fire Damper Control Panel (FDCP) with Interfaces",category:"Control Panels",description:"ECY-S1000 + HORYZON display + Modbus I/O interfaces + Schrack panel",lines:[
     {id:"fd1",desc:"24VAC/VDC Power Supply Module",partNo:"ECY-PS24",code:411,unit:"No",rate:0,labour:0,qty:1,markup:1,workPkg:"3"},
@@ -278,18 +278,18 @@ const INITIAL_BLOCKS = [
     {id:"bs2",desc:"EC-Net Supervisor 0 — 18 Month SMA",partNo:"",code:512,unit:"No",rate:0,labour:0,qty:1,markup:1,workPkg:"3"},
     {id:"bs3",desc:"EC-Net Supervisor Integration Pack 2500",partNo:"",code:512,unit:"No",rate:0,labour:0,qty:1,markup:1,workPkg:"3"},
     {id:"bs4",desc:"EC-Net Designer 1250",partNo:"",code:512,unit:"No",rate:0,labour:0,qty:1,markup:1,workPkg:"3"},
-    {id:"bs5",desc:"Installation of Software — BMS Engineer",partNo:"",code:902,unit:"hr",rate:0,labour:0,qty:4,markup:1,workPkg:"3"},
+    {id:"bs5",lab:true,desc:"Installation of Software — BMS Engineer",partNo:"",code:902,unit:"hr",rate:0,labour:1,qty:4,markup:1,workPkg:"3"},
   ]},
   {id:"b_bms_server",name:"BMS Server",category:"Integrated Systems",description:"Server, UPS and rack mount kit with installation",lines:[
     {id:"bsv1",desc:"Server for BMS Software",partNo:"",code:821,unit:"No",rate:0,labour:0,qty:1,markup:1,workPkg:"3"},
     {id:"bsv2",desc:"UPS for BMS Server",partNo:"",code:820,unit:"No",rate:0,labour:0,qty:1,markup:1,workPkg:"3"},
     {id:"bsv3",desc:"Rack Mount Kit for BMS Server",partNo:"",code:821,unit:"No",rate:0,labour:0,qty:1,markup:1,workPkg:"3"},
-    {id:"bsv4",desc:"Installation of Server — BMS Engineer",partNo:"",code:902,unit:"hr",rate:0,labour:0,qty:8,markup:1,workPkg:"3"},
+    {id:"bsv4",lab:true,desc:"Installation of Server — BMS Engineer",partNo:"",code:902,unit:"hr",rate:0,labour:1,qty:8,markup:1,workPkg:"3"},
   ]},
   {id:"b_ip_network",name:"Engineering IP Network",category:"Integrated Systems",description:"Helmholtz 16-port DIN rail switch + UPS; Cat 6 qty to be set per job",lines:[
     {id:"ipn1",desc:"Helmholtz 16-Port Switch — DIN Rail",partNo:"",code:821,unit:"No",rate:0,labour:0,qty:1,markup:1,workPkg:"3"},
     {id:"ipn2",desc:"UPS for IP Network",partNo:"",code:820,unit:"No",rate:0,labour:0,qty:1,markup:1,workPkg:"3"},
-    {id:"ipn3",desc:"Cat 6 Cable Installation — AGV",partNo:"",code:414,unit:"hr",rate:0,labour:0,qty:0,markup:1,workPkg:"3"},
+    {id:"ipn3",lab:true,desc:"Cat 6 Cable Installation — AGV",partNo:"",code:414,unit:"hr",rate:0,labour:1,qty:0,markup:1,workPkg:"3"},
   ]},
   {id:"b_field",name:"General Field Equipment",category:"Field Equipment",description:"Field devices — attach to any DDC",lines:[
     {id:"fd_g1",desc:"Flood Sensor (WDC Leak Module + WLM Cable 5m + PSU + Enclosure)",partNo:"SNS Middle East",code:416,unit:"No",rate:0,labour:2,qty:2,markup:1,workPkg:"3"},
@@ -318,8 +318,8 @@ const INITIAL_BLOCKS = [
   {id:"b_inverter_bare",name:"Inverter — No Panel (Fuji Frenic-Aqua)",category:"Field Equipment",description:"Standalone inverter supply, transport, termination and programming",lines:[
     {id:"inv1",desc:"Frenic-Aqua 15kW",partNo:"FRN15AQ1L-4E",code:416,unit:"No",rate:0,labour:0,qty:1,markup:1,workPkg:"3"},
     {id:"inv2",desc:"Transport",partNo:"",code:962,unit:"No",rate:0,labour:0,qty:1,markup:1,workPkg:"3"},
-    {id:"inv3",desc:"Termination, Point Testing & FAT — AGV",partNo:"",code:421,unit:"hr",rate:0,labour:0,qty:4,markup:1,workPkg:"3"},
-    {id:"inv4",desc:"Programming — Pump Set Operation — BMS Engineer",partNo:"",code:902,unit:"hr",rate:0,labour:0,qty:4,markup:1,workPkg:"3"},
+    {id:"inv3",lab:true,desc:"Termination, Point Testing & FAT — AGV",partNo:"",code:421,unit:"hr",rate:0,labour:1,qty:4,markup:1,workPkg:"3"},
+    {id:"inv4",lab:true,desc:"Programming — Pump Set Operation — BMS Engineer",partNo:"",code:902,unit:"hr",rate:0,labour:1,qty:4,markup:1,workPkg:"3"},
   ]},
   {id:"b_inv_enclosure_modbus",name:"Inverter Block with Enclosure and Modbus",category:"Field Equipment",description:"Fuji AQUA VSD + ETAS enclosure + panel components + cabling + AGV labour",lines:[
     {id:"ib1",desc:"Fuji AQUA VSD 37kW IP21 incl EMC-Filter, DC-reactor, operator panel",partNo:"FRN37AQ1M-4E",code:416,unit:"No",rate:0,labour:0,qty:1,markup:1,workPkg:"3"},
@@ -328,9 +328,9 @@ const INITIAL_BLOCKS = [
     {id:"ib4",desc:"Auxiliary Contact Front 1NO+1NC",partNo:"BE082882",code:415,unit:"No",rate:0,labour:0,qty:1,markup:1,workPkg:"3"},
     {id:"ib5",desc:"Exhaust Filter 252x252x38mm IP54",partNo:"IUKNE450",code:415,unit:"No",rate:0,labour:0,qty:1,markup:1,workPkg:"3"},
     {id:"ib6",desc:"Low Level Cables",partNo:"",code:412,unit:"No",rate:0,labour:0,qty:4,markup:1,workPkg:"3"},
-    {id:"ib7",desc:"Labour — Installation & Wiring (AGV)",partNo:"",code:900,unit:"hr",rate:0,labour:0,qty:16,markup:1,workPkg:"3"},
+    {id:"ib7",lab:true,desc:"Labour — Installation & Wiring (AGV)",partNo:"",code:900,unit:"hr",rate:0,labour:1,qty:16,markup:1,workPkg:"3"},
     {id:"ib8",desc:"Modbus Cable",partNo:"",code:413,unit:"No",rate:0,labour:0,qty:1,markup:1,workPkg:"3"},
-    {id:"ib9",desc:"Labour — Modbus Termination & Commissioning (AGV)",partNo:"",code:900,unit:"hr",rate:0,labour:0,qty:4,markup:1,workPkg:"3"},
+    {id:"ib9",lab:true,desc:"Labour — Modbus Termination & Commissioning (AGV)",partNo:"",code:900,unit:"hr",rate:0,labour:1,qty:4,markup:1,workPkg:"3"},
     {id:"ib10",desc:"Consumables",partNo:"",code:875,unit:"No",rate:0,labour:0,qty:1,markup:1,workPkg:"3"},
     {id:"ib11",desc:"Panel Building",partNo:"",code:420,unit:"No",rate:0,labour:2,qty:1,markup:1,workPkg:"3"},
   ]},
@@ -389,10 +389,10 @@ const INITIAL_BLOCKS = [
     {id:"tp3",desc:"Wireless Repeater 230V",partNo:"",code:416,unit:"No",rate:0,labour:0.25,qty:2,markup:1,workPkg:"3"},
     {id:"tp4",desc:"Batteries",partNo:"",code:416,unit:"No",rate:0,labour:0,qty:18,markup:1,workPkg:"3"},
     {id:"tp5",desc:"Duct CO2 Sensor",partNo:"GS-D TCO2 AA",code:416,unit:"No",rate:0,labour:0.50,qty:2,markup:1,workPkg:"3"},
-    {id:"tp6",desc:"TABS Config — BMS Engineer",partNo:"",code:902,unit:"LS",rate:0,labour:0,qty:2,markup:1,workPkg:"3"},
-    {id:"tp7",desc:"VAV Config — BMS Engineer",partNo:"",code:902,unit:"LS",rate:0,labour:0,qty:2,markup:1,workPkg:"3"},
-    {id:"tp8",desc:"New Tenant BMS Page — BMS Engineer",partNo:"",code:902,unit:"LS",rate:0,labour:0,qty:2,markup:1,workPkg:"3"},
-    {id:"tp9",desc:"Belimo Config — BMS Engineer",partNo:"",code:902,unit:"LS",rate:0,labour:0,qty:2,markup:1,workPkg:"3"},
+    {id:"tp6",lab:true,desc:"TABS Config — BMS Engineer",partNo:"",code:902,unit:"hr",rate:0,labour:1,qty:2,markup:1,workPkg:"3"},
+    {id:"tp7",lab:true,desc:"VAV Config — BMS Engineer",partNo:"",code:902,unit:"hr",rate:0,labour:1,qty:2,markup:1,workPkg:"3"},
+    {id:"tp8",lab:true,desc:"New Tenant BMS Page — BMS Engineer",partNo:"",code:902,unit:"hr",rate:0,labour:1,qty:2,markup:1,workPkg:"3"},
+    {id:"tp9",lab:true,desc:"Belimo Config — BMS Engineer",partNo:"",code:902,unit:"hr",rate:0,labour:1,qty:2,markup:1,workPkg:"3"},
   ]},
   ...FIELD_DEVICES.map(fd=>({
     id:`b_${fd.id}`,name:fd.desc,category:"Common Field Devices",description:"Belimo field device — qty 1, adjust per job",
@@ -431,7 +431,9 @@ function parsePrice(v){if(!v)return null;const n=parseFloat(String(v).replace(/[
 const pkey=s=>String(s||"").toUpperCase().replace(/[^A-Z0-9:]/g,"");
 function buildPriceMap(items){const m=new Map();for(const i of items){if(/NOT CONVERTED/i.test(i.extra||""))continue;const k=pkey(i.partNo);const v=i.netPrice??i.listPrice;if(k&&v!=null&&!m.has(k))m.set(k,v);}return m;}
 // Lookup order per block line: Panta rate for that exact line (PR:<block>:<line>), then part number.
-const lineRate=(b,l,map)=>map.get(pkey(`PR:${b.id}:${l.id}`))??(l.partNo?map.get(pkey(l.partNo)):undefined);
+const lineRate=(b,l,map)=>l.lab?0:map.get(pkey(`PR:${b.id}:${l.id}`))??(l.partNo?map.get(pkey(l.partNo)):undefined);
+// Labour: hours only (Labour column = hrs per unit). Cost = total hrs x estimate labour rate.
+const DEFAULT_LAB_RATE=33;
 function applyPrices(blocks,map){let priced=0;const missing=[];const out=blocks.map(b=>({...b,lines:b.lines.map(l=>{const v=lineRate(b,l,map);if(v!=null){priced++;return{...l,rate:v};}missing.push(`${b.name}: ${l.desc}${l.partNo?` (${l.partNo})`:""}`);return{...l,rate:0};})}));return{blocks:out,priced,missing};}
 
 function PriceListSearch({priceList,onAdd}){
@@ -515,7 +517,7 @@ function BatchImport({priceList,onImport,onClose}){
   );
 }
 
-function Builder({blocks,estimate,setEstimate,priceList}){
+function Builder({blocks,estimate,setEstimate,priceList,defaultLabRate}){
   const priceMap=useMemo(()=>buildPriceMap(priceList),[priceList]);
   const fdRate=fd=>priceMap.get(pkey(`PR:b_${fd.id}:l_${fd.id}`))??priceMap.get(pkey(fd.partNo))??0;
   const [pickerState,setPickerState]=useState(null);
@@ -537,15 +539,17 @@ function Builder({blocks,estimate,setEstimate,priceList}){
   const addFieldDevice=fd=>{setEstimate(e=>({...e,rows:[...e.rows,{type:"line",id:uid(),desc:fd.desc,partNo:fd.partNo,code:416,unit:"No",rate:fdRate(fd),labour:0,qty:1,markup:1,workPkg:"3"}]}));setShowFdPicker(false);setFdSearch("");};
   const addPriceListItem=item=>{const rate=item.netPrice??item.listPrice??0;setEstimate(e=>({...e,rows:[...e.rows,{type:"line",id:uid(),desc:item.desc,partNo:item.partNo,code:416,unit:"No",rate,labour:0,qty:1,markup:1,workPkg:"3"}]}));};
   const addBatchRows=rows=>setEstimate(e=>({...e,rows:[...e.rows,...rows]}));
-  const addBlankLine=()=>setEstimate(e=>({...e,rows:[...e.rows,{type:"line",id:uid(),desc:"",partNo:"",code:900,unit:"hr",rate:0,labour:0,qty:1,markup:1,workPkg:""}]}));
+  const addBlankLine=()=>setEstimate(e=>({...e,rows:[...e.rows,{type:"line",id:uid(),desc:"",partNo:"",code:416,unit:"No",rate:0,labour:0,qty:1,markup:1,workPkg:"3"}]}));
   const updRow=(id,k,v)=>setEstimate(e=>({...e,rows:e.rows.map(r=>r.id===id?{...r,[k]:v}:r)}));
   const removeRow=id=>setEstimate(e=>({...e,rows:e.rows.filter(r=>r.id!==id)}));
   const moveRow=(id,dir)=>setEstimate(e=>{const arr=[...e.rows];const i=arr.findIndex(r=>r.id===id);const j=i+dir;if(j<0||j>=arr.length)return e;[arr[i],arr[j]]=[arr[j],arr[i]];return{...e,rows:arr};});
 
   const lineRows=estimate.rows.filter(r=>r.type==="line");
   const rateTotal=lineRows.reduce((s,l)=>s+l.qty*l.rate*(l.markup||1),0);
-  const labourTotal=lineRows.reduce((s,l)=>s+l.qty*l.labour,0);
-  const grandTotal=rateTotal+labourTotal;
+  const totalHrs=lineRows.reduce((s,l)=>s+l.qty*(l.labour||0),0);
+  const labRate=estimate.labRate??defaultLabRate??DEFAULT_LAB_RATE;
+  const labourCost=totalHrs*labRate;
+  const grandTotal=rateTotal+labourCost;
 
   const buildCsv=()=>{
     const q=v=>`"${String(v==null?"":v).replace(/"/g,'""')}"`;
@@ -553,7 +557,7 @@ function Builder({blocks,estimate,setEstimate,priceList}){
     const out=[row(["Qty","Unit","Description","Part No","Job Ref","Code","(__)","Work Pkg","Rate","Rate Total","Labour","Labour Total"])];
     estimate.rows.forEach(r=>{
       if(r.type==="header"){out.push(row([`*** ${r.label} ***`,"","","","","","","","","","",""]));}
-      else{const rt=(r.qty*r.rate*(r.markup||1)).toFixed(2);const lt=(r.qty*r.labour).toFixed(2);out.push(row([r.qty,r.unit,r.desc,r.partNo||"",estimate.ref||"BMSE_001",r.code,"(__)",r.workPkg||"",r.rate,rt,r.labour,lt]));}
+      else{const rt=(r.qty*r.rate*(r.markup||1)).toFixed(2);const lt=(r.qty*(r.labour||0)).toFixed(2);out.push(row([r.qty,r.unit,r.desc,r.partNo||"",estimate.ref||"BMSE_001",r.code,"(__)",r.workPkg||"",r.rate,rt,r.labour,lt]));}
     });
     return out.join("\n");
   };
@@ -649,7 +653,7 @@ function Builder({blocks,estimate,setEstimate,priceList}){
             <div style={{overflowX:"auto"}}>
               <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
                 <thead><tr style={{background:"#f1f5f9"}}>
-                  {["","Qty","Unit","Description","Part No","Code","WkPkg","Rate €","Mkup","Rate Total","Lab €","Lab Total",""].map((h,i)=>(
+                  {["","Qty","Unit","Description","Part No","Code","WkPkg","Rate €","Mkup","Rate Total","Hrs/unit","Total hrs",""].map((h,i)=>(
                     <th key={i} style={{padding:"5px 6px",textAlign:"left",fontWeight:600,color:"#555",whiteSpace:"nowrap"}}>{h}</th>
                   ))}
                 </tr></thead>
@@ -678,8 +682,8 @@ function Builder({blocks,estimate,setEstimate,priceList}){
                         <td><input type="number" value={r.rate} onChange={e=>updRow(r.id,"rate",parseFloat(e.target.value)||0)} style={{...S.inp,width:65}}/></td>
                         <td><input type="number" step="0.01" value={r.markup||1} onChange={e=>updRow(r.id,"markup",parseFloat(e.target.value)||1)} style={{...S.inp,width:48}}/></td>
                         <td style={{fontWeight:600,whiteSpace:"nowrap",color:"#1a2e4a",padding:"3px 6px"}}>{fmt(rt)}</td>
-                        <td><input type="number" value={r.labour} onChange={e=>updRow(r.id,"labour",parseFloat(e.target.value)||0)} style={{...S.inp,width:60}}/></td>
-                        <td style={{fontWeight:600,whiteSpace:"nowrap",color:"#4a6741",padding:"3px 6px"}}>{fmt(lt)}</td>
+                        <td><input type="number" step="0.25" value={r.labour} onChange={e=>updRow(r.id,"labour",parseFloat(e.target.value)||0)} style={{...S.inp,width:60}}/></td>
+                        <td style={{fontWeight:600,whiteSpace:"nowrap",color:"#4a6741",padding:"3px 6px"}}>{Number(lt.toFixed(2))} h</td>
                         <td><button onClick={()=>removeRow(r.id)} style={{...S.micro,color:"#c00"}}>✕</button></td>
                       </tr>
                     );
@@ -703,8 +707,13 @@ function Builder({blocks,estimate,setEstimate,priceList}){
       </div>
       <div style={{width:210,flexShrink:0}}>
         <Card title="Summary">
-          <Row label="Rate Total" val={fmt(rateTotal)}/>
-          <Row label="Labour Total" val={fmt(labourTotal)} bold={false} color="#4a6741"/>
+          <Row label="Material" val={fmt(rateTotal)}/>
+          <Row label="Labour hours" val={`${totalHrs.toLocaleString("en-GB",{maximumFractionDigits:2})} h`} bold={false} color="#4a6741"/>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:"1px solid #f0f0f0",fontSize:12}}>
+            <span style={{color:"#555"}}>Labour rate €/h</span>
+            <input type="number" step="0.01" value={labRate} onChange={e=>upd("labRate",parseFloat(e.target.value)||0)} style={{...S.inp,width:64,textAlign:"right"}}/>
+          </div>
+          <Row label="Labour cost" val={fmt(labourCost)} bold={false} color="#4a6741"/>
           <div style={{borderTop:"2px solid #1a2e4a",marginTop:6,paddingTop:6}}>
             <Row label="Grand Total" val={fmt(grandTotal)} bold color="#1a2e4a"/>
           </div>
@@ -752,14 +761,14 @@ function Library({blocks,setBlocks}){
           {expanded===b.id&&(
             <div style={{overflowX:"auto",padding:"0 4px 8px"}}>
               <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
-                <thead><tr style={{background:"#f1f5f9"}}>{["Qty","Unit","Description","Part No","Code","Rate €","Markup","Labour €"].map((h,i)=><th key={i} style={{padding:"5px 8px",textAlign:"left",fontWeight:600,color:"#555"}}>{h}</th>)}</tr></thead>
+                <thead><tr style={{background:"#f1f5f9"}}>{["Qty","Unit","Description","Part No","Code","Rate €","Markup","Hrs/unit"].map((h,i)=><th key={i} style={{padding:"5px 8px",textAlign:"left",fontWeight:600,color:"#555"}}>{h}</th>)}</tr></thead>
                 <tbody>{b.lines.map((l,i)=>(
                   <tr key={l.id} style={{borderBottom:"1px solid #f1f5f9",background:i%2===0?"#fff":"#fafbfc"}}>
                     <td style={{padding:"4px 8px"}}>{l.qty}</td><td style={{padding:"4px 8px"}}>{l.unit}</td>
                     <td style={{padding:"4px 8px"}}>{l.desc}</td><td style={{padding:"4px 8px",color:"#888"}}>{l.partNo}</td>
                     <td style={{padding:"4px 8px"}}><span style={{background:"#e8f0fe",borderRadius:3,padding:"1px 5px",fontSize:10}}>{l.code}</span></td>
                     <td style={{padding:"4px 8px"}}>{fmt(l.rate)}</td><td style={{padding:"4px 8px",color:"#888"}}>{l.markup||1}x</td>
-                    <td style={{padding:"4px 8px",color:"#4a6741"}}>{fmt(l.labour)}</td>
+                    <td style={{padding:"4px 8px",color:"#4a6741"}}>{l.labour} h</td>
                   </tr>
                 ))}</tbody>
               </table>
@@ -787,7 +796,7 @@ function BlockEditor({block,onSave,onCancel}){
       </div>
       <div style={{overflowX:"auto"}}>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
-          <thead><tr style={{background:"#f1f5f9"}}>{["","Qty","Unit","Description","Part No","Code","WkPkg","Rate €","Markup","Labour €",""].map((h,i)=><th key={i} style={{padding:"5px 6px",textAlign:"left",fontWeight:600,color:"#555"}}>{h}</th>)}</tr></thead>
+          <thead><tr style={{background:"#f1f5f9"}}>{["","Qty","Unit","Description","Part No","Code","WkPkg","Rate €","Markup","Hrs/unit",""].map((h,i)=><th key={i} style={{padding:"5px 6px",textAlign:"left",fontWeight:600,color:"#555"}}>{h}</th>)}</tr></thead>
           <tbody>{b.lines.map((l,idx)=>(
             <tr key={l.id} style={{borderBottom:"1px solid #f1f5f9",background:idx%2===0?"#fff":"#fafbfc"}}>
               <td><button onClick={()=>moveLine(l.id,-1)} style={S.micro}>▲</button><button onClick={()=>moveLine(l.id,1)} style={S.micro}>▼</button></td>
@@ -820,6 +829,7 @@ function App(){
   const [estimate,setEstimate]=useState({project:"",client:"",ref:"",date:new Date().toISOString().slice(0,10),notes:"",rows:[]});
   const [priceList,setPriceList]=useState([]);
   const [priceInfo,setPriceInfo]=useState(null);
+  const [defaultLabRate,setDefaultLabRate]=useState(DEFAULT_LAB_RATE);
   const [showMissing,setShowMissing]=useState(false);
   const fileRef=useRef();
   const loadCsv=e=>{
@@ -829,7 +839,8 @@ function App(){
       const rows=parseCsv(ev.target.result);if(rows.length<2)return;
       const items=rows.slice(1).map(r=>({supplier:r[0]||"",desc:r[1]||"",partNo:r[2]||"",listPrice:parsePrice(r[3]),netPrice:parsePrice(r[4]),extra:r[5]||""})).filter(i=>i.desc||i.partNo);
       setPriceList(items);
-      const r=applyPrices(blocks,buildPriceMap(items));
+      const pm=buildPriceMap(items);const lr=pm.get(pkey("LAB:RATE"));if(lr!=null)setDefaultLabRate(lr);
+      const r=applyPrices(blocks,pm);
       setBlocks(r.blocks);setPriceInfo({file:file.name,priced:r.priced,missing:r.missing});
     };
     reader.readAsText(file);
@@ -845,7 +856,7 @@ function App(){
           </button>
           {priceList.length>0&&<button onClick={()=>{setPriceList([]);setBlocks(applyPrices(blocks,new Map()).blocks);setPriceInfo(null);}} style={{...S.btn("#7a2a2a","4px 10px"),fontSize:11}}>✕ Clear</button>}
         </div>
-        <span style={{marginLeft:"auto",fontSize:11,opacity:0.5}}>Panta Contracting Limited · v3.0 · prices from file · 8 Nov 2026</span>
+        <span style={{marginLeft:"auto",fontSize:11,opacity:0.5}}>Panta Contracting Limited · v3.1 · labour in hours · 9 Nov 2026</span>
       </div>
       <div style={{background:"#fff",borderBottom:"2px solid #e2e8f0",display:"flex",paddingLeft:24}}>
         {["Estimate Builder","Block Library"].map((t,i)=>(
@@ -855,10 +866,10 @@ function App(){
       <div style={{padding:20}}>
         {!priceInfo&&<div style={{background:"#fff8e1",border:"1px solid #f0c36d",borderRadius:6,padding:"8px 12px",marginBottom:14,fontSize:12}}>No price file loaded: block and field-device rates show €0. Load <b>Estimating_Price_File.csv</b> (built from the Pricing Library) using the button above.</div>}
         {priceInfo&&<div style={{background:priceInfo.missing.length?"#fff8e1":"#e8f5e9",border:`1px solid ${priceInfo.missing.length?"#f0c36d":"#9ccc9c"}`,borderRadius:6,padding:"8px 12px",marginBottom:14,fontSize:12}}>
-          Prices from <b>{priceInfo.file}</b>: {priceInfo.priced} block lines priced{priceInfo.missing.length>0&&<>; <b>{priceInfo.missing.length} unpriced (€0)</b> <button onClick={()=>setShowMissing(v=>!v)} style={{...S.micro,marginLeft:6}}>{showMissing?"hide":"show"}</button></>}. All rates are cost; set markup per line.
+          Prices from <b>{priceInfo.file}</b>: {priceInfo.priced} block lines priced{priceInfo.missing.length>0&&<>; <b>{priceInfo.missing.length} unpriced (€0)</b> <button onClick={()=>setShowMissing(v=>!v)} style={{...S.micro,marginLeft:6}}>{showMissing?"hide":"show"}</button></>}. All rates are cost; labour is in hours × the estimate labour rate.
           {showMissing&&<ul style={{margin:"6px 0 0 18px",maxHeight:160,overflowY:"auto"}}>{priceInfo.missing.map((m,i)=><li key={i}>{m}</li>)}</ul>}
         </div>}
-        {tab===0?<Builder blocks={blocks} estimate={estimate} setEstimate={setEstimate} priceList={priceList}/>:<Library blocks={blocks} setBlocks={setBlocks}/>}
+        {tab===0?<Builder blocks={blocks} estimate={estimate} setEstimate={setEstimate} priceList={priceList} defaultLabRate={defaultLabRate}/>:<Library blocks={blocks} setBlocks={setBlocks}/>}
       </div>
     </div>
   );
