@@ -74,6 +74,12 @@ Columns 7+ are traceability (`Currency, UoM, Price_ID, Source_Doc_ID, Document_D
 ### Price List Search
 Type any description fragment or part number. Results update in real time. Click **+ Add** to insert a line at qty 1.
 
+### Import Estimate CSV
+**📥 Import Estimate CSV** appends lines from a CSV in this tool's export format: a previous export, or output from the `quote-ahu` / `cam-cush-vcp` skills. Section rows (`*** ... ***`) become section headers; markup is recovered from Rate Total. Use it to combine skill output with other scope, then edit and export.
+
+### To the Elec_Est template
+Drag the exported CSV onto `quoting_agent\CSV to Elec_Est.bat` (runs `csv_to_elec_est.py`). It writes a paste-in block (one template item per section; simple or mixed with SUBI per markup code) to `quoting_agent\output\`. Insert Copied Cells into the live Elec_Est.
+
 ### Batch Import
 Click **📋 Batch Import** and paste part numbers, one per line, with an optional quantity after a comma:
 
