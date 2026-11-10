@@ -429,6 +429,9 @@ function parsePrice(v){if(!v)return null;const n=parseFloat(String(v).replace(/[
 // from the price file built by _Estimating_Core/scripts/build_price_file.py
 // (Pricing Library supplier costs + Panta rates). All rates are COST.
 const pkey=s=>String(s||"").toUpperCase().replace(/[^A-Z0-9:]/g,"");
+// New estimate line from a price-file item: cost code, unit and install hours come from the file when given
+const itemUnit=i=>{const u=String(i.uom||"").replace(/^per\s+/i,"").trim();return /^(m|metre|meter)$/i.test(u)?"m":(u&&u.length<=4?u:"No");};
+const itemLine=(i,qty)=>({type:"line",id:uid(),desc:i.desc,partNo:i.partNo,code:i.code||416,unit:itemUnit(i),rate:i.netPrice??i.listPrice??0,labour:i.labour||0,qty,markup:1,workPkg:"3"});
 function buildPriceMap(items){const m=new Map();for(const i of items){if(/NOT CONVERTED/i.test(i.extra||""))continue;const k=pkey(i.partNo);const v=i.netPrice??i.listPrice;if(k&&v!=null&&!m.has(k))m.set(k,v);}return m;}
 // Lookup order per block line: Panta rate for that exact line (PR:<block>:<line>), then part number.
 const lineRate=(b,l,map)=>l.lab?0:map.get(pkey(`PR:${b.id}:${l.id}`))??(l.partNo?map.get(pkey(l.partNo)):undefined);
@@ -488,7 +491,7 @@ function BatchImport({priceList,onImport,onClose}){
       const qty=qtyStr?parseFloat(qtyStr):1;
       const safeQty=isNaN(qty)||qty<=0?1:qty;
       const found=priceList.find(i=>i.partNo.trim().toLowerCase()===partNo.toLowerCase());
-      if(found){const rate=found.netPrice??found.listPrice??0;newRows.push({type:"line",id:uid(),desc:found.desc,partNo:found.partNo,code:416,unit:"No",rate,labour:0,qty:safeQty,markup:1,workPkg:"3"});}
+      if(found){newRows.push(itemLine(found,safeQty));}
       else{errors.push(partNo);newRows.push({type:"line",id:uid(),desc:`⚠ NOT FOUND — ${partNo}`,partNo,code:416,unit:"No",rate:0,labour:0,qty:safeQty,markup:1,workPkg:"3",_error:true});}
     });
     onImport(newRows);setResult({total:tokens.length,errors});
@@ -537,7 +540,7 @@ function Builder({blocks,estimate,setEstimate,priceList,defaultLabRate}){
     setPickerState(null);setPendingName("");setPickerCat("All");
   };
   const addFieldDevice=fd=>{setEstimate(e=>({...e,rows:[...e.rows,{type:"line",id:uid(),desc:fd.desc,partNo:fd.partNo,code:416,unit:"No",rate:fdRate(fd),labour:0,qty:1,markup:1,workPkg:"3"}]}));setShowFdPicker(false);setFdSearch("");};
-  const addPriceListItem=item=>{const rate=item.netPrice??item.listPrice??0;setEstimate(e=>({...e,rows:[...e.rows,{type:"line",id:uid(),desc:item.desc,partNo:item.partNo,code:416,unit:"No",rate,labour:0,qty:1,markup:1,workPkg:"3"}]}));};
+  const addPriceListItem=item=>setEstimate(e=>({...e,rows:[...e.rows,itemLine(item,1)]}));
   const addBatchRows=rows=>setEstimate(e=>({...e,rows:[...e.rows,...rows]}));
   // Internal Panta keys are for pricing blocks only; never offered as items
   const searchList=useMemo(()=>priceList.filter(i=>!/^(PR:|LAB:)/i.test(i.partNo||"")),[priceList]);
@@ -841,7 +844,8 @@ function App(){
     const reader=new FileReader();
     reader.onload=ev=>{
       const rows=parseCsv(ev.target.result);if(rows.length<2)return;
-      const items=rows.slice(1).map(r=>({supplier:r[0]||"",desc:r[1]||"",partNo:r[2]||"",listPrice:parsePrice(r[3]),netPrice:parsePrice(r[4]),extra:r[5]||""})).filter(i=>i.desc||i.partNo);
+      const H=(rows[0]||[]).map(h=>String(h).trim().toLowerCase());const col=n=>H.indexOf(n);const cU=col("uom"),cC=col("code"),cL=col("labour_hrs");
+      const items=rows.slice(1).map(r=>({supplier:r[0]||"",desc:r[1]||"",partNo:r[2]||"",listPrice:parsePrice(r[3]),netPrice:parsePrice(r[4]),extra:r[5]||"",uom:cU>=0?r[cU]||"":"",code:cC>=0?parseInt(r[cC])||null:null,labour:cL>=0?parseFloat(r[cL])||0:0})).filter(i=>i.desc||i.partNo);
       setPriceList(items);
       const pm=buildPriceMap(items);const lr=pm.get(pkey("LAB:RATE"));if(lr!=null)setDefaultLabRate(lr);
       const r=applyPrices(blocks,pm);
@@ -860,7 +864,7 @@ function App(){
           </button>
           {priceList.length>0&&<button onClick={()=>{setPriceList([]);setBlocks(applyPrices(blocks,new Map()).blocks);setPriceInfo(null);}} style={{...S.btn("#7a2a2a","4px 10px"),fontSize:11}}>✕ Clear</button>}
         </div>
-        <span style={{marginLeft:"auto",fontSize:11,opacity:0.5}}>Panta Contracting Limited · v3.2 · labour in hours · 9 Nov 2026</span>
+        <span style={{marginLeft:"auto",fontSize:11,opacity:0.5}}>Panta Contracting Limited · v3.3 · hours from price file · 10 Nov 2026</span>
       </div>
       <div style={{background:"#fff",borderBottom:"2px solid #e2e8f0",display:"flex",paddingLeft:24}}>
         {["Estimate Builder","Block Library"].map((t,i)=>(
