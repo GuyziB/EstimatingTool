@@ -12,7 +12,7 @@
 <body>
 <div id="root"></div>
 <script type="text/babel">
-const {useState,useRef,useMemo}=React;
+const {useState,useRef,useMemo,useEffect}=React;
 
 const CODES={410:"Controllers",411:"Controller Modules",412:"Signal Cable",413:"Modbus Cable",414:"CAT Cable",415:"Control Panels",416:"Field Devices",417:"DALI-KNX",418:"Fire Equipment",419:"Data Networks",420:"Panel Building",421:"Termination/Testing/FAT",501:"Erection Materials",505:"Busbar Trunking",510:"Switchgear",511:"MCC Equipment",512:"BMS Equipment",520:"PVC Pipes/Ducts",570:"Control Panels (Main)",615:"Elec Single Core Cables",616:"Elec Multicore Cables",617:"ELV/BMS/Special Cables",620:"Cable Accessories",650:"Galv Cable Trays",651:"PVC Cable Trays",652:"Galv Cable Basket",654:"Galv Cable Ladder",675:"Galv Cable Trunking",676:"Alum Cable Trunking",680:"PVC Cable Trunking",681:"Underfloor Cable Trunking",690:"Galv Conduit",700:"PVC Conduit",705:"Wiring Accessories",725:"Fire Alarm Equipment",750:"Security Alarm",751:"Access Control",753:"Sub-Contracting Install Elec",820:"UPS/Voltage Stabilisers",821:"Data Network Equipment",835:"Light Fittings",845:"Generators/AMF",870:"Tools & Instruments",875:"Consumables",880:"Drawings/Manuals",885:"Spare Parts",900:"Labour",901:"Dismantling",902:"Testing & Commissioning",960:"Sub-Contracting Works",961:"Enemalta Application",962:"Cranage & Transport",970:"Provisional Sum"};
 
@@ -432,6 +432,40 @@ const pkey=s=>String(s||"").toUpperCase().replace(/[^A-Z0-9:]/g,"");
 // New estimate line from a price-file item: cost code, unit and install hours come from the file when given
 const itemUnit=i=>{const u=String(i.uom||"").replace(/^per\s+/i,"").trim();return /^(m|metre|meter)$/i.test(u)?"m":(u&&u.length<=4?u:"No");};
 const itemLine=(i,qty)=>({type:"line",id:uid(),desc:i.desc,partNo:i.partNo,code:i.code||416,unit:itemUnit(i),rate:i.netPrice??i.listPrice??0,labour:i.labour||0,qty,markup:1,workPkg:"3"});
+// ── Estimate CSV text (shared by Export CSV and Save to job folder) ──
+function estimateToCsv(estimate){
+  const q=v=>`"${String(v==null?"":v).replace(/"/g,'""')}"`;
+  const row=arr=>arr.map(q).join(",");
+  const out=[row(["Qty","Unit","Description","Part No","Job Ref","Code","(__)","Work Pkg","Rate","Rate Total","Labour","Labour Total"])];
+  estimate.rows.forEach(r=>{
+    if(r.type==="header"){out.push(row([`*** ${r.label} ***`,"","","","","","","","","","",""]));}
+    else{const rt=(r.qty*r.rate*(r.markup||1)).toFixed(2);const lt=(r.qty*(r.labour||0)).toFixed(2);out.push(row([r.qty,r.unit,r.desc,r.partNo||"",estimate.ref||"BMSE_001",r.code,"(__)",r.workPkg||"",r.rate,rt,r.labour,lt]));}
+  });
+  return out.join("\n");
+}
+
+// ── Persistence: small IndexedDB key-value store (this browser only) ──
+// Holds: autosave (current estimate), recentJobs (folder handles), currentJob, priceFile (file handle).
+const idb=(()=>{
+  let dbp=null;
+  const open=()=>dbp||(dbp=new Promise((res,rej)=>{const r=indexedDB.open("panta-estimating",1);r.onupgradeneeded=()=>r.result.createObjectStore("kv");r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);}));
+  const tx=(mode,fn)=>open().then(db=>new Promise((res,rej)=>{const t=db.transaction("kv",mode);const req=fn(t.objectStore("kv"));t.oncomplete=()=>res(req&&req.result);t.onerror=()=>rej(t.error);}));
+  return{get:k=>tx("readonly",st=>st.get(k)).catch(()=>undefined),set:(k,v)=>tx("readwrite",st=>st.put(v,k)).catch(()=>undefined)};
+})();
+const FS_OK=typeof window!=="undefined"&&"showDirectoryPicker" in window;
+async function ensurePerm(handle,mode){
+  try{const o={mode};if((await handle.queryPermission(o))==="granted")return true;return (await handle.requestPermission(o))==="granted";}catch(e){return false;}
+}
+const ESTIMATE_SUFFIX="_estimate.json";
+const safeName=s=>String(s||"").replace(/[\\/:*?"<>|]/g,"").trim();
+async function findEstimateFile(dir){
+  let best=null;
+  for await (const [name,h] of dir.entries()){
+    if(h.kind==="file"&&name.toLowerCase().endsWith(ESTIMATE_SUFFIX)){const f=await h.getFile();if(!best||f.lastModified>best.file.lastModified)best={name,handle:h,file:f};}
+  }
+  return best;
+}
+
 function buildPriceMap(items){const m=new Map();for(const i of items){if(/NOT CONVERTED/i.test(i.extra||""))continue;const k=pkey(i.partNo);const v=i.netPrice??i.listPrice;if(k&&v!=null&&!m.has(k))m.set(k,v);}return m;}
 // Lookup order per block line: Panta rate for that exact line (PR:<block>:<line>), then part number.
 const lineRate=(b,l,map)=>l.lab?0:map.get(pkey(`PR:${b.id}:${l.id}`))??(l.partNo?map.get(pkey(l.partNo)):undefined);
@@ -582,16 +616,7 @@ function Builder({blocks,estimate,setEstimate,priceList,defaultLabRate}){
   const labourCost=totalHrs*labRate;
   const grandTotal=rateTotal+labourCost;
 
-  const buildCsv=()=>{
-    const q=v=>`"${String(v==null?"":v).replace(/"/g,'""')}"`;
-    const row=arr=>arr.map(q).join(",");
-    const out=[row(["Qty","Unit","Description","Part No","Job Ref","Code","(__)","Work Pkg","Rate","Rate Total","Labour","Labour Total"])];
-    estimate.rows.forEach(r=>{
-      if(r.type==="header"){out.push(row([`*** ${r.label} ***`,"","","","","","","","","","",""]));}
-      else{const rt=(r.qty*r.rate*(r.markup||1)).toFixed(2);const lt=(r.qty*(r.labour||0)).toFixed(2);out.push(row([r.qty,r.unit,r.desc,r.partNo||"",estimate.ref||"BMSE_001",r.code,"(__)",r.workPkg||"",r.rate,rt,r.labour,lt]));}
-    });
-    return out.join("\n");
-  };
+  const buildCsv=()=>estimateToCsv(estimate);
 
   const downloadCsv=()=>{
     const blob=new Blob([buildCsv()],{type:"text/csv"});
@@ -866,40 +891,162 @@ function App(){
   const [defaultLabRate,setDefaultLabRate]=useState(DEFAULT_LAB_RATE);
   const [showMissing,setShowMissing]=useState(false);
   const fileRef=useRef();
-  const loadCsv=e=>{
-    const file=e.target.files[0];if(!file)return;
-    const reader=new FileReader();
-    reader.onload=ev=>{
-      const rows=parseCsv(ev.target.result);if(rows.length<2)return;
+  const EMPTY_EST=()=>({project:"",client:"",ref:"",date:new Date().toISOString().slice(0,10),notes:"",rows:[]});
+  const [job,setJob]=useState(null);          // {dir, name, file}
+  const [jobMsg,setJobMsg]=useState("");
+  const [savedSig,setSavedSig]=useState(null); // JSON of estimate at last folder save/open
+  const [recent,setRecent]=useState([]);
+  const [lastPrice,setLastPrice]=useState(null); // remembered price file handle
+  const [restored,setRestored]=useState(null);
+  const [confirmNew,setConfirmNew]=useState(false);
+  const booted=useRef(false);
+  const sig=JSON.stringify(estimate);
+  const dirty=savedSig!==null?sig!==savedSig:estimate.rows.length>0;
+
+  const applyPriceText=(text,name)=>{
+      const rows=parseCsv(text);if(rows.length<2)return;
       const H=(rows[0]||[]).map(h=>String(h).trim().toLowerCase());const col=n=>H.indexOf(n);const cU=col("uom"),cC=col("code"),cL=col("labour_hrs");
       const items=rows.slice(1).map(r=>({supplier:r[0]||"",desc:r[1]||"",partNo:r[2]||"",listPrice:parsePrice(r[3]),netPrice:parsePrice(r[4]),extra:r[5]||"",uom:cU>=0?r[cU]||"":"",code:cC>=0?parseInt(r[cC])||null:null,labour:cL>=0?parseFloat(r[cL])||0:0})).filter(i=>i.desc||i.partNo);
       setPriceList(items);
       const pm=buildPriceMap(items);const lr=pm.get(pkey("LAB:RATE"));if(lr!=null)setDefaultLabRate(lr);
       const r=applyPrices(blocks,pm);
-      setBlocks(r.blocks);setPriceInfo({file:file.name,priced:r.priced,missing:r.missing});
-    };
+      setBlocks(r.blocks);setPriceInfo({file:name,priced:r.priced,missing:r.missing});
+  };
+  const loadCsv=e=>{
+    const file=e.target.files[0];if(!file)return;
+    const reader=new FileReader();
+    reader.onload=ev=>applyPriceText(ev.target.result,file.name);
     reader.readAsText(file);
   };
+  // Price file via file handle, remembered between visits
+  const loadPriceFromHandle=async(h,ask)=>{
+    if(!(ask?await ensurePerm(h,"read"):(await h.queryPermission({mode:"read"}))==="granted"))return false;
+    const f=await h.getFile();applyPriceText(await f.text(),f.name);return true;
+  };
+  const pickPriceFile=async()=>{
+    if(!("showOpenFilePicker" in window)){fileRef.current.click();return;}
+    try{
+      const [h]=await window.showOpenFilePicker({id:"pricefile",types:[{description:"Price file",accept:{"text/csv":[".csv"]}}]});
+      await idb.set("priceFile",h);setLastPrice(h);await loadPriceFromHandle(h,true);
+    }catch(e){/* cancelled */}
+  };
+
+  // ── Job folder ──
+  const addRecent=async(dir,ref)=>{
+    const list=((await idb.get("recentJobs"))||[]).filter(j=>j.name!==dir.name);
+    const next=[{name:dir.name,ref:ref||"",handle:dir,at:Date.now()},...list].slice(0,8);
+    await idb.set("recentJobs",next);setRecent(next);
+  };
+  const writeJob=async(dir,est)=>{
+    const base=safeName(est.ref)||safeName(dir.name.split(" ")[0])||"estimate";
+    const name=(job&&job.dir===dir&&job.file)||(base+ESTIMATE_SUFFIX);
+    const payload={app:"Panta BMS Estimating Tool",schema:1,savedAt:new Date().toISOString(),estimate:est};
+    const fh=await dir.getFileHandle(name,{create:true});
+    const w=await fh.createWritable();await w.write(JSON.stringify(payload,null,1));await w.close();
+    const csvName=name.replace(/\.json$/i,".csv");
+    const ch=await dir.getFileHandle(csvName,{create:true});
+    const w2=await ch.createWritable();await w2.write(estimateToCsv(est));await w2.close();
+    return name;
+  };
+  const saveJob=async(pickNew)=>{
+    if(!FS_OK){setJobMsg("Saving to a folder needs Edge or Chrome.");return;}
+    try{
+      let dir=job&&!pickNew?job.dir:null;
+      if(!dir)dir=await window.showDirectoryPicker({id:"jobfolder",mode:"readwrite"});
+      if(!(await ensurePerm(dir,"readwrite"))){setJobMsg("Permission to write to the folder was not given.");return;}
+      const name=await writeJob(dir,estimate);
+      const j={dir,name:dir.name,file:name};setJob(j);await idb.set("currentJob",j);
+      setSavedSig(JSON.stringify(estimate));await addRecent(dir,estimate.ref);
+      setJobMsg(`Saved ${name} (+ .csv) at ${new Date().toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}`);
+    }catch(e){if(e&&e.name!=="AbortError")setJobMsg("Save failed: "+e.message);}
+  };
+  const openDir=async dir=>{
+    if(!(await ensurePerm(dir,"readwrite"))){setJobMsg("Permission to open the folder was not given.");return;}
+    const found=await findEstimateFile(dir);
+    if(found){
+      const data=JSON.parse(await found.file.text());const est=data.estimate||data;
+      if(!est||!Array.isArray(est.rows)){setJobMsg(found.name+" is not an estimate file.");return;}
+      setEstimate(est);setSavedSig(JSON.stringify(est));
+      const j={dir,name:dir.name,file:found.name};setJob(j);await idb.set("currentJob",j);await addRecent(dir,est.ref);
+      setRestored(null);setJobMsg(`Opened ${found.name} (saved ${new Date(found.file.lastModified).toLocaleString("en-GB")})`);
+    }else{
+      const j={dir,name:dir.name,file:null};setJob(j);await idb.set("currentJob",j);await addRecent(dir,estimate.ref);
+      setJobMsg(`No saved estimate in "${dir.name}" yet. Save will create one there.`);
+    }
+  };
+  const openJob=async()=>{
+    if(!FS_OK){setJobMsg("Opening a folder needs Edge or Chrome.");return;}
+    try{await openDir(await window.showDirectoryPicker({id:"jobfolder",mode:"readwrite"}));}
+    catch(e){if(e&&e.name!=="AbortError")setJobMsg("Open failed: "+e.message);}
+  };
+  const newJob=()=>{
+    if(dirty&&!confirmNew){setConfirmNew(true);setTimeout(()=>setConfirmNew(false),4000);return;}
+    setConfirmNew(false);setEstimate(EMPTY_EST());setJob(null);setSavedSig(null);setRestored(null);idb.set("currentJob",null);setJobMsg("New estimate started.");
+  };
+
+  // ── Boot: restore autosave, current job, recent jobs, last price file ──
+  useEffect(()=>{(async()=>{
+    const auto=await idb.get("autosave");
+    if(auto&&auto.estimate&&Array.isArray(auto.estimate.rows)&&(auto.estimate.rows.length||auto.estimate.project)){
+      setEstimate(auto.estimate);if(auto.savedSig!==undefined)setSavedSig(auto.savedSig);
+      setRestored({at:auto.at,job:auto.jobName});
+    }
+    const cj=await idb.get("currentJob");if(cj&&cj.dir)setJob(cj);
+    setRecent((await idb.get("recentJobs"))||[]);
+    const pf=await idb.get("priceFile");
+    if(pf){setLastPrice(pf);try{await loadPriceFromHandle(pf,false);}catch(e){}}
+    booted.current=true;
+  })();},[]);
+  // ── Autosave to this browser, 1 s after the last change ──
+  useEffect(()=>{
+    if(!booted.current)return;
+    const t=setTimeout(()=>idb.set("autosave",{estimate,savedSig,at:Date.now(),jobName:job?job.name:null}),1000);
+    return()=>clearTimeout(t);
+  },[sig,savedSig,job]);
+  // ── Ctrl+S saves to the job folder ──
+  useEffect(()=>{
+    const h=e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="s"){e.preventDefault();saveJob(false);}};
+    window.addEventListener("keydown",h);return()=>window.removeEventListener("keydown",h);
+  });
   return(
     <div style={{fontFamily:"Segoe UI,sans-serif",fontSize:13,background:"#f0f2f5",minHeight:"100vh"}}>
       <div style={{background:"#1a2e4a",color:"#fff",padding:"12px 24px",display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}}>
         <span style={{fontSize:17,fontWeight:700}}>⚙ BMS Estimating Tool</span>
         <div style={{marginLeft:24,display:"flex",alignItems:"center",gap:8}}>
           <input ref={fileRef} type="file" accept=".csv" style={{display:"none"}} onChange={loadCsv}/>
-          <button onClick={()=>fileRef.current.click()} style={{...S.btn("#2e5c8a","5px 12px"),fontSize:11}}>
+          <button onClick={pickPriceFile} style={{...S.btn("#2e5c8a","5px 12px"),fontSize:11}}>
             📂 {priceList.length>0?`Price List Loaded (${priceList.length} items)`:"Load Price File (CSV)"}
           </button>
+          {priceList.length===0&&lastPrice&&<button onClick={()=>loadPriceFromHandle(lastPrice,true)} style={{...S.btn("#2a6a4a","5px 12px"),fontSize:11}} title="Reload the price file used last time">↻ Load {lastPrice.name}</button>}
           {priceList.length>0&&<button onClick={()=>{setPriceList([]);setBlocks(applyPrices(blocks,new Map()).blocks);setPriceInfo(null);}} style={{...S.btn("#7a2a2a","4px 10px"),fontSize:11}}>✕ Clear</button>}
         </div>
-        <span style={{marginLeft:"auto",fontSize:11,opacity:0.5}}>Panta Contracting Limited · v3.4 · import estimate CSV · 10 Nov 2026</span>
+        <span style={{marginLeft:"auto",fontSize:11,opacity:0.5}}>Panta Contracting Limited · v3.5 · job folder save · 19 Nov 2026</span>
       </div>
       <div style={{background:"#fff",borderBottom:"2px solid #e2e8f0",display:"flex",paddingLeft:24}}>
         {["Estimate Builder","Block Library"].map((t,i)=>(
           <button key={i} onClick={()=>setTab(i)} style={{padding:"10px 20px",border:"none",background:"none",cursor:"pointer",fontWeight:i===tab?700:400,color:i===tab?"#1a2e4a":"#666",borderBottom:i===tab?"3px solid #1a2e4a":"3px solid transparent",fontSize:13,marginBottom:-2}}>{t}</button>
         ))}
       </div>
+      <div style={{background:"#eef3f8",borderBottom:"1px solid #d5e0ea",padding:"8px 24px",display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",fontSize:12}}>
+        <b style={{color:"#1a2e4a"}}>Job:</b>
+        <span title={job&&job.file?job.file:""}>{job?`📁 ${job.name}`:"not saved to a folder"}</span>
+        {dirty&&<span style={{color:"#b26a00",fontWeight:600}}>● unsaved changes</span>}
+        <span style={{flex:1}}/>
+        <button onClick={openJob} style={{...S.btn("#2e5c8a","5px 12px"),fontSize:11}} title="Pick a job folder; opens the saved estimate in it">📂 Open job folder</button>
+        <button onClick={()=>saveJob(false)} style={{...S.btn("#2a6a4a","5px 12px"),fontSize:11}} title="Save to the job folder (Ctrl+S)">💾 {job?"Save":"Save to job folder"}</button>
+        {job&&<button onClick={()=>saveJob(true)} style={{...S.btn("#5a6a7a","5px 12px"),fontSize:11}} title="Save to a different folder">Save as…</button>}
+        {recent.length>0&&<select value="" onChange={e=>{const j=recent[+e.target.value];if(j)openDir(j.handle).catch(err=>setJobMsg("Open failed: "+err.message));}} style={{...S.inp,width:"auto",fontSize:11,padding:"4px 6px"}}>
+          <option value="">Recent jobs…</option>
+          {recent.map((j,i)=><option key={i} value={i}>{j.name}</option>)}
+        </select>}
+        <button onClick={newJob} style={{...S.btn(confirmNew?"#9a2a2a":"#7a7a7a","5px 12px"),fontSize:11}}>{confirmNew?"Unsaved changes: click again to clear":"New estimate"}</button>
+      </div>
+      {(jobMsg||restored)&&<div style={{padding:"6px 24px",fontSize:12,color:"#2a5a7a",background:"#f7fafc",borderBottom:"1px solid #e2e8f0"}}>
+        {restored&&<span>Restored your last session ({new Date(restored.at).toLocaleString("en-GB")}{restored.job?`, job ${restored.job}`:""}). </span>}
+        {jobMsg} <button onClick={()=>{setJobMsg("");setRestored(null);}} style={S.micro}>×</button>
+      </div>}
       <div style={{padding:20}}>
-        {!priceInfo&&<div style={{background:"#fff8e1",border:"1px solid #f0c36d",borderRadius:6,padding:"8px 12px",marginBottom:14,fontSize:12}}>No price file loaded: block and field-device rates show €0. Load <b>Estimating_Price_File.csv</b> (built from the Pricing Library) using the button above.</div>}
+        {!priceInfo&&<div style={{background:"#fff8e1",border:"1px solid #f0c36d",borderRadius:6,padding:"8px 12px",marginBottom:14,fontSize:12}}>No price file loaded: block and field-device rates show €0. Load <b>Estimating_Price_File.csv</b> (built from the Pricing Library) using the button above; it is remembered for next time.</div>}
         {priceInfo&&<div style={{background:priceInfo.missing.length?"#fff8e1":"#e8f5e9",border:`1px solid ${priceInfo.missing.length?"#f0c36d":"#9ccc9c"}`,borderRadius:6,padding:"8px 12px",marginBottom:14,fontSize:12}}>
           Prices from <b>{priceInfo.file}</b>: {priceInfo.priced} block lines priced{priceInfo.missing.length>0&&<>; <b>{priceInfo.missing.length} unpriced (€0)</b> <button onClick={()=>setShowMissing(v=>!v)} style={{...S.micro,marginLeft:6}}>{showMissing?"hide":"show"}</button></>}. All rates are cost; labour is in hours × the estimate labour rate.
           {showMissing&&<ul style={{margin:"6px 0 0 18px",maxHeight:160,overflowY:"auto"}}>{priceInfo.missing.map((m,i)=><li key={i}>{m}</li>)}</ul>}

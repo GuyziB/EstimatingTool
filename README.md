@@ -74,6 +74,14 @@ Columns 7+ are traceability (`Currency, UoM, Price_ID, Source_Doc_ID, Document_D
 ### Price List Search
 Type any description fragment or part number. Results update in real time. Click **+ Add** to insert a line at qty 1.
 
+### Saving your work (Edge / Chrome)
+- **💾 Save to job folder**: pick the job folder (e.g. `...\3. Small Jobs\SJ624 - TEVA System16 Move`). The tool writes `SJ624_estimate.json` (the full estimate, to reopen) and `SJ624_estimate.csv` (for `CSV to Elec_Est.bat`). Then **Save** or **Ctrl+S** overwrites them.
+- **📂 Open job folder**: pick a job folder; the newest `*_estimate.json` in it is opened exactly as saved (rates are not re-priced).
+- **Recent jobs**: one click (plus the browser's Allow prompt) to reopen the last 8 job folders.
+- **Autosave**: the current estimate is kept in this browser and restored after a refresh or closed tab. The job folder file is the real record.
+- **Price file is remembered**: after the first load, **↻ Load Estimating_Price_File.csv** reloads it in one click (or automatically if the browser already has permission).
+- **New estimate** asks for a second click if there are unsaved changes.
+
 ### Import Estimate CSV
 **📥 Import Estimate CSV** appends lines from a CSV in this tool's export format: a previous export, or output from the `quote-ahu` / `cam-cush-vcp` skills. Section rows (`*** ... ***`) become section headers; markup is recovered from Rate Total. Use it to combine skill output with other scope, then edit and export.
 
