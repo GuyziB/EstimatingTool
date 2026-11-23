@@ -90,6 +90,10 @@ Type any description fragment or part number. Results update in real time. Click
 - **⧉ Duplicate** on a section header copies the section, its lines and its notes (e.g. AHU-01 to AHU-02).
 - **📝 Scratch notes** on each section: for the exclusions, questions and assumptions you'd otherwise jot on paper. They are listed under Notes / Scope / Exclusions ("check these before sending"), saved with the job, and written to `<ref>_notes.txt` in the job folder on Save. They are **not** in the CSV, so the Elec_Est converter is unaffected.
 
+### Cost codes (v3.7)
+- The **Cost codes** table under the Summary lists the codes used in this estimate with what they cover, their material total and hours; **▸ All codes** shows the full list (codes in use are shaded).
+- The Code dropdown shows each code's name when opened; hover over a code to see its name.
+
 ### Import Estimate CSV
 **📥 Import Estimate CSV** appends lines from a CSV in this tool's export format: a previous export, or output from the `quote-ahu` / `cam-cush-vcp` skills. Section rows (`*** ... ***`) become section headers; markup is recovered from Rate Total. Use it to combine skill output with other scope, then edit and export.
 
