@@ -15,6 +15,7 @@ A lightweight, browser-based estimating tool for BMS and controls projects. Buil
 - **Price List Search** — load a supplier CSV and search across thousands of items by description or part number; filter by supplier (Belimo, Distech, Fuji)
 - **Batch Import** — paste a list of manufacturer part numbers (with optional quantities) and inject all matched lines into the estimate in one go
 - **Blank line** — add a manual line anywhere
+- **Sections without blocks, copy/paste and section scratch notes** — see below
 - **Inline editing** — edit qty, unit, description, part number, cost code, work package, rate, markup and labour hours directly in the table
 - **Row reordering** — move any line up or down with ▲ ▼ buttons
 - **Live summary** — rate total, labour total and grand total update in real time
@@ -81,6 +82,13 @@ Type any description fragment or part number. Results update in real time. Click
 - **Autosave**: the current estimate is kept in this browser and restored after a refresh or closed tab. The job folder file is the real record.
 - **Price file is remembered**: after the first load, **↻ Load Estimating_Price_File.csv** reloads it in one click (or automatically if the browser already has permission).
 - **New estimate** asks for a second click if there are unsaved changes.
+
+### Sections, copy and paste, scratch notes (v3.6)
+- **Adding into a section**: click a section header (it turns lighter blue with a yellow edge, "◀ adding here"). Block, Field Device, Price List Search, Batch Import, Blank Line, Labour Line and Import (lines only) then add at the end of that section. "add to end of estimate instead" clears it.
+- **+ Section**: a section header on its own, no block needed.
+- **Copy / Cut / Paste**: tick lines (or the box on a section header to tick its whole section), then Copy or Cut. Paste goes into the selected section, or use ⤵ on any row to paste directly below it (⤵ on a header pastes at the top of that section). A cut moves the lines once; a copy can be pasted again. **Delete** removes ticked lines (second click to confirm). Copying stays inside the tool.
+- **⧉ Duplicate** on a section header copies the section, its lines and its notes (e.g. AHU-01 to AHU-02).
+- **📝 Scratch notes** on each section: for the exclusions, questions and assumptions you'd otherwise jot on paper. They are listed under Notes / Scope / Exclusions ("check these before sending"), saved with the job, and written to `<ref>_notes.txt` in the job folder on Save. They are **not** in the CSV, so the Elec_Est converter is unaffected.
 
 ### Import Estimate CSV
 **📥 Import Estimate CSV** appends lines from a CSV in this tool's export format: a previous export, or output from the `quote-ahu` / `cam-cush-vcp` skills. Section rows (`*** ... ***`) become section headers; markup is recovered from Rate Total. Use it to combine skill output with other scope, then edit and export.

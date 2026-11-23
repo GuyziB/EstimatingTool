@@ -433,6 +433,26 @@ const pkey=s=>String(s||"").toUpperCase().replace(/[^A-Z0-9:]/g,"");
 const itemUnit=i=>{const u=String(i.uom||"").replace(/^per\s+/i,"").trim();return /^(m|metre|meter)$/i.test(u)?"m":(u&&u.length<=4?u:"No");};
 const itemLine=(i,qty)=>({type:"line",id:uid(),desc:i.desc,partNo:i.partNo,code:i.code||416,unit:itemUnit(i),rate:i.netPrice??i.listPrice??0,labour:i.labour||0,qty,markup:1,workPkg:"3"});
 // ── Estimate CSV text (shared by Export CSV and Save to job folder) ──
+// Index just past the last line of the section headed hid (i.e. where the next section starts); -1 if not found
+function sectionEnd(rows,hid){const i=rows.findIndex(r=>r.id===hid);if(i<0)return -1;let j=i+1;while(j<rows.length&&rows[j].type!=="header")j++;return j;}
+
+// Scratch notes as plain text (written next to the estimate; never in the CSV)
+function estimateNotesText(est){
+  const L=[];
+  L.push(`${est.ref||""} ${est.project||""}`.trim()||"Estimate");
+  if(est.client)L.push("Client: "+est.client);
+  L.push("Notes saved "+new Date().toLocaleString("en-GB"));
+  L.push("");
+  L.push("GENERAL NOTES / SCOPE / EXCLUSIONS");
+  L.push((est.notes||"").trim()||"(none)");
+  const secs=(est.rows||[]).filter(r=>r.type==="header"&&(r.notes||"").trim());
+  L.push("");L.push("SECTION NOTES");
+  if(!secs.length)L.push("(none)");
+  secs.forEach(r=>{L.push("");L.push("["+r.label+"]");L.push(r.notes.trim());});
+  return L.join("\r\n")+"\r\n";
+}
+const hasAnyNotes=est=>!!((est.notes||"").trim()||(est.rows||[]).some(r=>r.type==="header"&&(r.notes||"").trim()));
+
 function estimateToCsv(estimate){
   const q=v=>`"${String(v==null?"":v).replace(/"/g,'""')}"`;
   const row=arr=>arr.map(q).join(",");
@@ -567,18 +587,27 @@ function Builder({blocks,estimate,setEstimate,priceList,defaultLabRate}){
 
   const upd=(k,v)=>setEstimate(e=>({...e,[k]:v}));
   const togglePanel=p=>setActivePanel(a=>a===p?null:p);
+  // ── Where new lines go: the end of the selected section (click a section header), else the end of the estimate ──
+  const [activeSec,setActiveSec]=useState(null);
+  const insertRows=newRows=>setEstimate(e=>{
+    const at=activeSec?sectionEnd(e.rows,activeSec):-1;
+    if(at<0)return{...e,rows:[...e.rows,...newRows]};
+    const rows=[...e.rows];rows.splice(at,0,...newRows);return{...e,rows};
+  });
+  const activeHeader=estimate.rows.find(r=>r.id===activeSec&&r.type==="header");
+  const addSectionOnly=name=>{const id=uid();setEstimate(e=>({...e,rows:[...e.rows,{type:"header",id,label:name,notes:""}]}));setActiveSec(id);setPickerState(null);setPendingName("");};
   const addBlockRows=(block,headerName)=>{
     const lines=block.lines.map(l=>({type:"line",...l,id:uid()}));
-    if(headerName){setEstimate(e=>({...e,rows:[...e.rows,{type:"header",id:uid(),label:headerName},...lines]}));}
-    else{setEstimate(e=>({...e,rows:[...e.rows,...lines]}));}
+    if(headerName){const id=uid();setEstimate(e=>({...e,rows:[...e.rows,{type:"header",id,label:headerName,notes:""},...lines]}));setActiveSec(id);}
+    else{insertRows(lines);}
     setPickerState(null);setPendingName("");setPickerCat("All");
   };
-  const addFieldDevice=fd=>{setEstimate(e=>({...e,rows:[...e.rows,{type:"line",id:uid(),desc:fd.desc,partNo:fd.partNo,code:416,unit:"No",rate:fdRate(fd),labour:0,qty:1,markup:1,workPkg:"3"}]}));setShowFdPicker(false);setFdSearch("");};
-  const addPriceListItem=item=>setEstimate(e=>({...e,rows:[...e.rows,itemLine(item,1)]}));
-  const addBatchRows=rows=>setEstimate(e=>({...e,rows:[...e.rows,...rows]}));
+  const addFieldDevice=fd=>{insertRows([{type:"line",id:uid(),desc:fd.desc,partNo:fd.partNo,code:416,unit:"No",rate:fdRate(fd),labour:0,qty:1,markup:1,workPkg:"3"}]);setShowFdPicker(false);setFdSearch("");};
+  const addPriceListItem=item=>insertRows([itemLine(item,1)]);
+  const addBatchRows=rows=>insertRows(rows);
   // Internal Panta keys are for pricing blocks only; never offered as items
   const searchList=useMemo(()=>priceList.filter(i=>!/^(PR:|LAB:)/i.test(i.partNo||"")),[priceList]);
-  const addLabourLine=()=>setEstimate(e=>({...e,rows:[...e.rows,{type:"line",id:uid(),desc:"BMS Pair — Labour",partNo:"",code:900,unit:"hr",rate:0,labour:1,qty:1,markup:1,workPkg:"3"}]}));
+  const addLabourLine=()=>insertRows([{type:"line",id:uid(),desc:"BMS Pair — Labour",partNo:"",code:900,unit:"hr",rate:0,labour:1,qty:1,markup:1,workPkg:"3"}]);
   // Import an estimate CSV (this tool's export, or quote-ahu / cam-cush-vcp output in the same format); appends to the current estimate
   const [importMsg,setImportMsg]=useState("");
   const importEstimate=ev=>{
@@ -599,12 +628,51 @@ function Builder({blocks,estimate,setEstimate,priceList,defaultLabRate}){
         const markup=qty&&rate&&rt?Math.round(rt/(qty*rate)*1000)/1000:1;
         out.push({type:"line",id:uid(),desc:r[iD]||"",partNo:iP>=0?r[iP]||"":"",code:iC>=0?parseInt(r[iC])||416:416,unit:iU>=0?r[iU]||"No":"No",rate,labour:iL>=0?num(r[iL]):0,qty,markup,workPkg:iW>=0?String(r[iW]||"3"):"3"});nl++;
       });
-      setEstimate(e=>({...e,rows:[...e.rows,...out]}));
+      // A file with its own sections goes at the end; lines only go into the selected section
+      if(ns>0)setEstimate(e=>({...e,rows:[...e.rows,...out]}));else insertRows(out);
       setImportMsg(`Imported ${nl} lines in ${ns} section(s) from ${file.name}`);
     };
     reader.readAsText(file);ev.target.value="";
   };
-  const addBlankLine=()=>setEstimate(e=>({...e,rows:[...e.rows,{type:"line",id:uid(),desc:"",partNo:"",code:416,unit:"No",rate:0,labour:0,qty:1,markup:1,workPkg:"3"}]}));
+  const addBlankLine=()=>insertRows([{type:"line",id:uid(),desc:"",partNo:"",code:416,unit:"No",rate:0,labour:0,qty:1,markup:1,workPkg:"3"}]);
+
+  // ── Tick, copy, cut, paste, duplicate (inside the tool only) ──
+  const [ticked,setTicked]=useState(()=>new Set());
+  const [clip,setClip]=useState(null); // {mode:"copy"|"cut", rows:[...]}
+  const [confirmDel,setConfirmDel]=useState(false);
+  const toggleTick=id=>setTicked(t=>{const n=new Set(t);n.has(id)?n.delete(id):n.add(id);return n;});
+  const secLineIds=hid=>{const i=estimate.rows.findIndex(r=>r.id===hid);const end=sectionEnd(estimate.rows,hid);return i<0?[]:estimate.rows.slice(i+1,end).map(r=>r.id);};
+  const secAllTicked=hid=>{const ids=secLineIds(hid);return ids.length>0&&ids.every(id=>ticked.has(id));};
+  const tickSection=hid=>{const ids=secLineIds(hid);const all=ids.length>0&&ids.every(id=>ticked.has(id));setTicked(t=>{const n=new Set(t);ids.forEach(id=>all?n.delete(id):n.add(id));return n;});};
+  const tickedLines=estimate.rows.filter(r=>r.type==="line"&&ticked.has(r.id));
+  const copyTicked=mode=>{if(!tickedLines.length)return;setClip({mode,rows:tickedLines.map(r=>({...r}))});setTicked(new Set());setConfirmDel(false);};
+  const cutIds=clip&&clip.mode==="cut"?new Set(clip.rows.map(r=>r.id)):null;
+  // afterId: paste directly below that row; null: end of the selected section, else end of estimate
+  const pasteAt=afterId=>{
+    if(!clip)return;
+    setEstimate(e=>{
+      let rows=e.rows,src=clip.rows;
+      if(cutIds){src=rows.filter(r=>cutIds.has(r.id));rows=rows.filter(r=>!cutIds.has(r.id));}
+      const fresh=src.map(r=>({...r,id:uid()}));
+      let at=-1;
+      if(afterId){const i=rows.findIndex(r=>r.id===afterId);at=i<0?rows.length:i+1;}
+      else{at=activeSec?sectionEnd(rows,activeSec):-1;if(at<0)at=rows.length;}
+      rows=[...rows];rows.splice(at,0,...fresh);return{...e,rows};
+    });
+    if(clip.mode==="cut")setClip(null); // a cut moves once; a copy can be pasted again
+  };
+  const deleteTicked=()=>{if(!confirmDel){setConfirmDel(true);setTimeout(()=>setConfirmDel(false),4000);return;}setEstimate(e=>({...e,rows:e.rows.filter(r=>!ticked.has(r.id))}));setTicked(new Set());setConfirmDel(false);};
+  const dupSection=hid=>{
+    const nid=uid();
+    setEstimate(e=>{const i=e.rows.findIndex(r=>r.id===hid);if(i<0)return e;const end=sectionEnd(e.rows,hid);const h=e.rows[i];
+      const copy=[{...h,id:nid,label:h.label+" (copy)"},...e.rows.slice(i+1,end).map(r=>({...r,id:uid()}))];
+      const rows=[...e.rows];rows.splice(end,0,...copy);return{...e,rows};});
+    setActiveSec(nid);
+  };
+  // ── Section scratch notes ──
+  const [openNotes,setOpenNotes]=useState(()=>new Set());
+  const toggleNotes=id=>setOpenNotes(t=>{const n=new Set(t);n.has(id)?n.delete(id):n.add(id);return n;});
+  const sectionNotes=estimate.rows.filter(r=>r.type==="header"&&(r.notes||"").trim());
   const updRow=(id,k,v)=>setEstimate(e=>({...e,rows:e.rows.map(r=>r.id===id?{...r,[k]:v}:r)}));
   const removeRow=id=>setEstimate(e=>({...e,rows:e.rows.filter(r=>r.id!==id)}));
   const moveRow=(id,dir)=>setEstimate(e=>{const arr=[...e.rows];const i=arr.findIndex(r=>r.id===id);const j=i+dir;if(j<0||j>=arr.length)return e;[arr[i],arr[j]]=[arr[j],arr[i]];return{...e,rows:arr};});
@@ -640,6 +708,7 @@ function Builder({blocks,estimate,setEstimate,priceList,defaultLabRate}){
         </Card>
         <Card title="Estimate Lines">
           <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap",alignItems:"center"}}>
+            <button onClick={()=>{setPickerState({step:"name",only:true});setPendingName("");setShowFdPicker(false);setActivePanel(null);}} style={S.btn("#1a2e4a")} title="A section header only; add lines into it afterwards">+ Section</button>
             <button onClick={()=>{setPickerState({step:"name"});setPendingName("");setShowFdPicker(false);setActivePanel(null);}} style={S.btn()}>+ Add Section &amp; Block</button>
             <button onClick={()=>{setPickerState({step:"block"});setShowFdPicker(false);setActivePanel(null);}} style={S.btn("#2a4e7a")}>+ Add Block</button>
             <button onClick={()=>{setShowFdPicker(p=>!p);setPickerState(null);setActivePanel(null);}} style={S.btn("#5a7a4a")}>+ Field Device</button>
@@ -651,6 +720,26 @@ function Builder({blocks,estimate,setEstimate,priceList,defaultLabRate}){
             {estimate.rows.length>0&&<button onClick={()=>setShowExport(p=>!p)} style={S.btn("#7c4d14")}>📤 Export CSV</button>}
           </div>
 
+          {estimate.rows.some(r=>r.type==="header")&&<div style={{fontSize:12,margin:"0 0 10px",color:"#555"}}>
+            Adding to: {activeHeader
+              ?<><b style={{background:"#fff3c4",border:"1px solid #f0c36d",borderRadius:4,padding:"1px 8px",color:"#1a2e4a"}}>▸ {activeHeader.label||"(unnamed section)"}</b> <button onClick={()=>setActiveSec(null)} style={S.micro} title="New lines go to the bottom of the estimate">add to end of estimate instead</button></>
+              :<><b>end of estimate</b> <span style={{color:"#999"}}>(click a section header to add into that section)</span></>}
+          </div>}
+          {(tickedLines.length>0||clip)&&<div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",background:"#f3f0fa",border:"1px solid #c9bde6",borderRadius:6,padding:"6px 10px",marginBottom:10,fontSize:12}}>
+            {tickedLines.length>0&&<>
+              <b>{tickedLines.length} ticked</b>
+              <button onClick={()=>copyTicked("copy")} style={S.btn("#5a3a8a","4px 10px")}>Copy</button>
+              <button onClick={()=>copyTicked("cut")} style={S.btn("#5a3a8a","4px 10px")} title="Moves the lines when you paste">Cut</button>
+              <button onClick={deleteTicked} style={S.btn(confirmDel?"#9a2a2a":"#8a5a5a","4px 10px")}>{confirmDel?`Click again to delete ${tickedLines.length}`:"Delete"}</button>
+              <button onClick={()=>{setTicked(new Set());setConfirmDel(false);}} style={S.micro}>untick all</button>
+            </>}
+            {clip&&<>
+              <span style={{marginLeft:tickedLines.length?12:0}}>{clip.mode==="cut"?"Cut":"Copied"}: <b>{clip.rows.length} line{clip.rows.length!==1?"s":""}</b></span>
+              <button onClick={()=>pasteAt(null)} style={S.btn("#2a6a4a","4px 10px")}>Paste {activeHeader?"into ▸ "+(activeHeader.label||"section"):"at end"}</button>
+              <span style={{color:"#777"}}>or use ⤵ on any row to paste below it</span>
+              <button onClick={()=>setClip(null)} style={S.micro}>cancel</button>
+            </>}
+          </div>}
           {importMsg&&<div style={{fontSize:12,color:"#2a5a7a",margin:"0 0 10px"}}>{importMsg} <button onClick={()=>setImportMsg("")} style={S.micro}>×</button></div>}
           {activePanel==="search"&&<PriceListSearch priceList={searchList} onAdd={addPriceListItem}/>}
           {activePanel==="batch"&&<BatchImport priceList={priceList} onImport={addBatchRows} onClose={()=>setActivePanel(null)}/>}
@@ -674,10 +763,12 @@ function Builder({blocks,estimate,setEstimate,priceList,defaultLabRate}){
 
           {pickerState?.step==="name"&&(
             <div style={{background:"#fffbea",border:"1px solid #f0d060",borderRadius:6,padding:14,marginBottom:12}}>
-              <div style={{fontWeight:700,color:"#7c4d14",marginBottom:8,fontSize:13}}>Step 1 — Name this section</div>
+              <div style={{fontWeight:700,color:"#7c4d14",marginBottom:8,fontSize:13}}>{pickerState.only?"Name the new section":"Step 1 — Name this section"}</div>
               <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                <input autoFocus value={pendingName} onChange={e=>setPendingName(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&pendingName.trim())setPickerState({step:"block"});}} placeholder="e.g. AHU-01 — Heat Recovery Unit" style={{...S.inp,flex:1,fontSize:13}}/>
-                <button onClick={()=>{if(pendingName.trim())setPickerState({step:"block"});}} disabled={!pendingName.trim()} style={S.btn(pendingName.trim()?"#1a2e4a":"#aaa")}>Next →</button>
+                <input autoFocus value={pendingName} onChange={e=>setPendingName(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&pendingName.trim()){if(pickerState.only)addSectionOnly(pendingName.trim());else setPickerState({step:"block"});}}} placeholder="e.g. AHU-01 — Heat Recovery Unit" style={{...S.inp,flex:1,fontSize:13}}/>
+                {pickerState.only
+                  ?<button onClick={()=>{if(pendingName.trim())addSectionOnly(pendingName.trim());}} disabled={!pendingName.trim()} style={S.btn(pendingName.trim()?"#1a2e4a":"#aaa")}>Add section</button>
+                  :<button onClick={()=>{if(pendingName.trim())setPickerState({step:"block"});}} disabled={!pendingName.trim()} style={S.btn(pendingName.trim()?"#1a2e4a":"#aaa")}>Next →</button>}
                 <button onClick={()=>{setPickerState(null);setPendingName("");}} style={S.ghost}>Cancel</button>
               </div>
             </div>
@@ -712,25 +803,42 @@ function Builder({blocks,estimate,setEstimate,priceList,defaultLabRate}){
             <div style={{overflowX:"auto"}}>
               <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
                 <thead><tr style={{background:"#f1f5f9"}}>
-                  {["","Qty","Unit","Description","Part No","Code","WkPkg","Rate €","Mkup","Rate Total","Hrs/unit","Total hrs",""].map((h,i)=>(
+                  {["","","Qty","Unit","Description","Part No","Code","WkPkg","Rate €","Mkup","Rate Total","Hrs/unit","Total hrs",""].map((h,i)=>(
                     <th key={i} style={{padding:"5px 6px",textAlign:"left",fontWeight:600,color:"#555",whiteSpace:"nowrap"}}>{h}</th>
                   ))}
                 </tr></thead>
                 <tbody>
                   {estimate.rows.map((r,idx)=>{
-                    if(r.type==="header")return(
-                      <tr key={r.id} style={{background:"#1a2e4a"}}>
+                    if(r.type==="header"){
+                      const act=r.id===activeSec;const hasN=!!(r.notes||"").trim();const nOpen=openNotes.has(r.id);
+                      const hb={...S.micro,background:"transparent",color:"#ddd",border:"1px solid #456"};
+                      return(<React.Fragment key={r.id}>
+                      <tr onClick={()=>setActiveSec(r.id)} style={{background:act?"#2e5c8a":"#1a2e4a",cursor:"pointer",boxShadow:act?"inset 5px 0 0 #f0c36d":"none"}} title="Click to add new lines into this section">
+                        <td style={{padding:"3px 4px"}} onClick={ev=>ev.stopPropagation()}><input type="checkbox" checked={secAllTicked(r.id)} onChange={()=>tickSection(r.id)} title="Tick all lines in this section"/></td>
                         <td style={{padding:"3px",whiteSpace:"nowrap"}}>
-                          <button onClick={()=>moveRow(r.id,-1)} style={{...S.micro,background:"transparent",color:"#ccc",border:"1px solid #456"}}>▲</button>
-                          <button onClick={()=>moveRow(r.id,1)} style={{...S.micro,background:"transparent",color:"#ccc",border:"1px solid #456"}}>▼</button>
+                          <button onClick={()=>moveRow(r.id,-1)} style={hb}>▲</button>
+                          <button onClick={()=>moveRow(r.id,1)} style={hb}>▼</button>
                         </td>
-                        <td colSpan={11} style={{padding:"6px 8px"}}><input value={r.label} onChange={e=>updRow(r.id,"label",e.target.value)} style={{background:"transparent",border:"none",outline:"none",color:"#fff",fontWeight:700,fontSize:12,width:"100%"}}/></td>
-                        <td><button onClick={()=>removeRow(r.id)} style={{...S.micro,background:"transparent",color:"#f88",border:"1px solid #456"}}>✕</button></td>
+                        <td colSpan={11} style={{padding:"6px 8px"}}>
+                          <div style={{display:"flex",alignItems:"center",gap:6}}>
+                            <input value={r.label} onChange={e=>updRow(r.id,"label",e.target.value)} style={{background:"transparent",border:"none",outline:"none",color:"#fff",fontWeight:700,fontSize:12,flex:1,minWidth:0}}/>
+                            {act&&<span style={{fontSize:10,color:"#f0c36d",whiteSpace:"nowrap"}}>◀ adding here</span>}
+                            <button onClick={ev=>{ev.stopPropagation();toggleNotes(r.id);}} style={{...hb,background:hasN?"#f0c36d":"transparent",color:hasN?"#1a2e4a":"#ddd"}} title="Scratch notes for this section (not exported)">📝{hasN?" notes":""}</button>
+                            <button onClick={ev=>{ev.stopPropagation();dupSection(r.id);}} style={hb} title="Duplicate this section with its lines and notes">⧉ Duplicate</button>
+                            {clip&&<button onClick={ev=>{ev.stopPropagation();pasteAt(r.id);}} style={{...hb,color:"#9fe09f"}} title="Paste at the top of this section">⤵</button>}
+                          </div>
+                        </td>
+                        <td><button onClick={ev=>{ev.stopPropagation();removeRow(r.id);}} style={{...S.micro,background:"transparent",color:"#f88",border:"1px solid #456"}} title="Remove the header only; its lines stay">✕</button></td>
                       </tr>
-                    );
+                      {nOpen&&<tr style={{background:"#fffbea"}}><td colSpan={14} style={{padding:"6px 8px"}}>
+                        <textarea autoFocus={!hasN} value={r.notes||""} onChange={e=>updRow(r.id,"notes",e.target.value)} rows={3} style={{...S.inp,resize:"vertical",background:"#fffdf3"}} placeholder={"Scratch notes for "+(r.label||"this section")+": exclusions to remember, questions, assumptions… (saved with the job and to the notes .txt; not in the CSV)"}/>
+                      </td></tr>}
+                      </React.Fragment>);
+                    }
                     const rt=r.qty*r.rate*(r.markup||1);const lt=r.qty*r.labour;
                     return(
-                      <tr key={r.id} style={{borderBottom:"1px solid #f1f5f9",background:r._error?"#fff0f0":idx%2===0?"#fff":"#fafbfc"}}>
+                      <tr key={r.id} style={{borderBottom:"1px solid #f1f5f9",background:ticked.has(r.id)?"#efe9fb":r._error?"#fff0f0":idx%2===0?"#fff":"#fafbfc",opacity:cutIds&&cutIds.has(r.id)?0.45:1}}>
+                        <td style={{padding:"3px 4px"}}><input type="checkbox" checked={ticked.has(r.id)} onChange={()=>toggleTick(r.id)}/></td>
                         <td style={{padding:"3px",whiteSpace:"nowrap"}}><button onClick={()=>moveRow(r.id,-1)} style={S.micro}>▲</button><button onClick={()=>moveRow(r.id,1)} style={S.micro}>▼</button></td>
                         <td><input type="number" value={r.qty} onChange={e=>updRow(r.id,"qty",parseFloat(e.target.value)||0)} style={{...S.inp,width:45}}/></td>
                         <td><input value={r.unit} onChange={e=>updRow(r.id,"unit",e.target.value)} style={{...S.inp,width:40}}/></td>
@@ -743,7 +851,7 @@ function Builder({blocks,estimate,setEstimate,priceList,defaultLabRate}){
                         <td style={{fontWeight:600,whiteSpace:"nowrap",color:"#1a2e4a",padding:"3px 6px"}}>{fmt(rt)}</td>
                         <td><input type="number" step="0.25" value={r.labour} onChange={e=>updRow(r.id,"labour",parseFloat(e.target.value)||0)} style={{...S.inp,width:60}}/></td>
                         <td style={{fontWeight:600,whiteSpace:"nowrap",color:"#4a6741",padding:"3px 6px"}}>{Number(lt.toFixed(2))} h</td>
-                        <td><button onClick={()=>removeRow(r.id)} style={{...S.micro,color:"#c00"}}>✕</button></td>
+                        <td style={{whiteSpace:"nowrap"}}>{clip&&!(cutIds&&cutIds.has(r.id))&&<button onClick={()=>pasteAt(r.id)} style={{...S.micro,color:"#2a6a4a"}} title="Paste below this line">⤵</button>}<button onClick={()=>removeRow(r.id)} style={{...S.micro,color:"#c00"}}>✕</button></td>
                       </tr>
                     );
                   })}
@@ -754,6 +862,15 @@ function Builder({blocks,estimate,setEstimate,priceList,defaultLabRate}){
         </Card>
         <Card title="Notes / Scope / Exclusions">
           <textarea value={estimate.notes} onChange={e=>upd("notes",e.target.value)} rows={3} style={{...S.inp,resize:"vertical"}} placeholder="Scope clarifications, exclusions, assumptions…"/>
+          {sectionNotes.length>0&&<div style={{marginTop:10}}>
+            <div style={{fontSize:11,fontWeight:700,color:"#7c4d14",marginBottom:4}}>Section scratch notes: check these before sending ({sectionNotes.length})</div>
+            {sectionNotes.map(h=>(
+              <div key={h.id} style={{background:"#fffbea",border:"1px solid #f0e0a0",borderRadius:4,padding:"5px 8px",marginBottom:4,fontSize:12}}>
+                <b style={{cursor:"pointer",color:"#1a2e4a"}} onClick={()=>{setActiveSec(h.id);setOpenNotes(t=>new Set(t).add(h.id));}}>{h.label||"(unnamed section)"}</b>
+                <div style={{whiteSpace:"pre-wrap",color:"#444",marginTop:2}}>{h.notes.trim()}</div>
+              </div>
+            ))}
+          </div>}
         </Card>
         {showExport&&(
           <Card title="📤 CSV Export">
@@ -946,7 +1063,13 @@ function App(){
     const csvName=name.replace(/\.json$/i,".csv");
     const ch=await dir.getFileHandle(csvName,{create:true});
     const w2=await ch.createWritable();await w2.write(estimateToCsv(est));await w2.close();
-    return name;
+    // Scratch notes go to a plain .txt alongside (never in the CSV); written when there are notes, or to keep an existing file current
+    const notesName=name.replace(/_estimate\.json$/i,"").replace(/\.json$/i,"")+"_notes.txt";
+    let notesFh=null;
+    if(hasAnyNotes(est))notesFh=await dir.getFileHandle(notesName,{create:true});
+    else{try{notesFh=await dir.getFileHandle(notesName);}catch(e){notesFh=null;}}
+    if(notesFh){const w3=await notesFh.createWritable();await w3.write(estimateNotesText(est));await w3.close();}
+    return {name,notesName:notesFh?notesName:null};
   };
   const saveJob=async(pickNew)=>{
     if(!FS_OK){setJobMsg("Saving to a folder needs Edge or Chrome.");return;}
@@ -954,10 +1077,10 @@ function App(){
       let dir=job&&!pickNew?job.dir:null;
       if(!dir)dir=await window.showDirectoryPicker({id:"jobfolder",mode:"readwrite"});
       if(!(await ensurePerm(dir,"readwrite"))){setJobMsg("Permission to write to the folder was not given.");return;}
-      const name=await writeJob(dir,estimate);
+      const {name,notesName}=await writeJob(dir,estimate);
       const j={dir,name:dir.name,file:name};setJob(j);await idb.set("currentJob",j);
       setSavedSig(JSON.stringify(estimate));await addRecent(dir,estimate.ref);
-      setJobMsg(`Saved ${name} (+ .csv) at ${new Date().toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}`);
+      setJobMsg(`Saved ${name} (+ .csv${notesName?", "+notesName:""}) at ${new Date().toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}`);
     }catch(e){if(e&&e.name!=="AbortError")setJobMsg("Save failed: "+e.message);}
   };
   const openDir=async dir=>{
@@ -1020,7 +1143,7 @@ function App(){
           {priceList.length===0&&lastPrice&&<button onClick={()=>loadPriceFromHandle(lastPrice,true)} style={{...S.btn("#2a6a4a","5px 12px"),fontSize:11}} title="Reload the price file used last time">↻ Load {lastPrice.name}</button>}
           {priceList.length>0&&<button onClick={()=>{setPriceList([]);setBlocks(applyPrices(blocks,new Map()).blocks);setPriceInfo(null);}} style={{...S.btn("#7a2a2a","4px 10px"),fontSize:11}}>✕ Clear</button>}
         </div>
-        <span style={{marginLeft:"auto",fontSize:11,opacity:0.5}}>Panta Contracting Limited · v3.5 · job folder save · 19 Nov 2026</span>
+        <span style={{marginLeft:"auto",fontSize:11,opacity:0.5}}>Panta Contracting Limited · v3.6 · sections, copy/paste, notes · 23 Nov 2026</span>
       </div>
       <div style={{background:"#fff",borderBottom:"2px solid #e2e8f0",display:"flex",paddingLeft:24}}>
         {["Estimate Builder","Block Library"].map((t,i)=>(
